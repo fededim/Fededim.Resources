@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34322.80
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fededim.Utilities", "Fededim.Utilities\Fededim.Utilities.csproj", "{E0D04DD8-B4CB-4629-A0E4-3ADF20CC5B15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fededim.Utilities.Test", "Fededim.Utilities.Test\Fededim.Utilities.Test.csproj", "{F204D0EB-4132-4728-96E3-A1CF2D17FF25}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E0D04DD8-B4CB-4629-A0E4-3ADF20CC5B15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0D04DD8-B4CB-4629-A0E4-3ADF20CC5B15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0D04DD8-B4CB-4629-A0E4-3ADF20CC5B15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0D04DD8-B4CB-4629-A0E4-3ADF20CC5B15}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D857C31F-A7F8-4FAD-AF57-6DE64125195F}
+	EndGlobalSection
+EndGlobal
