@@ -108,6 +108,7 @@ foreach ($repository in $Repositories) {
 			Write-Host "`nAdding worktree REPOSITORY $repositoryName BRANCH $Branch FOLDER $(Get-Location)"
 			git worktree add -f "..\..\$branchFolderName\$repositoryName" "$Branch"
 			cd "..\..\$branchFolderName"
+
 			# remove repository folder if the branch does not exist
 			if (-Not (Test-Path -Path "$repositoryName\*")) {
 				Write-Host "REPOSITORY $repositoryName is empty, probably BRANCH $Branch does not exist, deleting folder.."
