@@ -93,8 +93,19 @@ foreach ($repository in $Repositories) {
 		else {
 			Remove-Item -Path $repositoryName -Recurse -Force -ErrorAction SilentlyContinue
 			[void](New-Item -ItemType Directory -Force -Path $repositoryName)
-			Write-Host "`nAdding worktree REPOSITORY $repositoryName BRANCH $Branch FOLDER $(Get-Location)\$repositoryName"
-			cd "..\master\$repositoryName"
+
+			if (-Not (Test-Path -Path "..\master\$repositoryName")) {
+				[void](New-Item -ItemType Directory -Force -Path "..\master")
+				cd "..\master"
+				Write-Host "`nCloning REPOSITORY $repositoryName BRANCH master FOLDER $(Get-Location)"
+				git clone "$repository"
+				cd "$repositoryName"
+			}
+			else {
+				cd "..\master\$repositoryName"
+			}
+
+			Write-Host "`nAdding worktree REPOSITORY $repositoryName BRANCH $Branch FOLDER $(Get-Location)"
 			git worktree add -f "..\..\$branchFolderName\$repositoryName" "$Branch"
 			cd "..\..\$branchFolderName"
 			# remove repository folder if the branch does not exist
