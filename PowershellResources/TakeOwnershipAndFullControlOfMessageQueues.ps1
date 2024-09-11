@@ -24,9 +24,11 @@ PS> TakeOwnershipAndFullControlOfMessageQueues -u "DOMAIN\USER"
 
 .LINK
 
-https://github.com/fededim/Fededim.Resources/master/tree/PowershellResources
+https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
 
 .NOTES
+
+© 2023 Federico Di Marco <fededim@gmail.com>
 
 Implementation of this script is partially borrowed from https://github.com/gavacho/System.Messaging.MessageQueue.SetOwner/blob/master/System.Messaging.MessageQueue.SetOwner.cs
 #>
