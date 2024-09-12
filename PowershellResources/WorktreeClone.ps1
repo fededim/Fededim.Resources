@@ -25,32 +25,36 @@ None
 
 .EXAMPLE
 
-PS> WorktreeClone master @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
+PS> WorktreeClone -Repositories @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
 
-A local folder "master" will be created
-Inside master folder the 2 repositories will be cloned/updated into Fededim.Resources and Fededim.Extensions.Configuration.Protected
+A local folder "master" or "main" will be created according to each remote repository default branch
+Each repository default branch will be cloned/updated into a subfolder inside the corresponding master/main one
 
-PS> WorktreeClone development @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
+PS> WorktreeClone develop @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
 
-A local folder "development" will be created
-Inside development folder the 2 repositories will be cloned/updated into Fededim.Resources and Fededim.Extensions.Configuration.Protected
+- If the master/main branch of a repository is not present inside the respective folder (master/main) it will be cloned
+- A local folder "develop" will be created
+- Inside develop folder any repository with the branch "develop" will be cloned/updated into the respective subfolder
 
 PS> WorktreeClone release/2.0 @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
 
-A local folder "release_2.0" will be created
-Inside release_2.0 folder the 2 repositories will be cloned/updated into Fededim.Resources and Fededim.Extensions.Configuration.Protected
+- If the master/main branch of each repositories is not present inside the respective folder (master/main) it will be cloned
+- A local folder "release_2.0" will be created
+- Inside release_2.0 folder any repository with the branch "release/2.0" will be cloned/updated into the respective subfolder
+ 
 
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE
 
 .NOTES
 
-© 2024 Federico Di Marco <fededim@gmail.com>
+© 2024 Federico Di Marco <fededim@gmail.com> released under MIT LICENSE 
 #>
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory=$true)]  [Alias('b')] [String] $Branch,
+	[Parameter(Mandatory=$false)]  [Alias('b')] [String] $Branch,
 	[Parameter(Mandatory=$false)]  [Alias('r')] [String[]] $Repositories
 	)
 
@@ -66,15 +70,25 @@ function IIf {
 }
 
 
+$masterBranches = @("master","main")
+
+
 if ($Repositories -eq $null) {
 	$Repositories = @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git","https://github.com/fededim/BinaryToPowershellScript.git")
 }
 
-$branchFolderName = IIf (@("master","main") -contains $Branch) $Branch $($Branch -replace '[\/\\]','_')
-[void](New-Item -ItemType Directory -Force -Path $branchFolderName)
-cd $branchFolderName
+
+$IsBranchEmpty = [System.String]::IsNullOrEmpty($Branch)
 
 foreach ($repository in $Repositories) {
+	if ($IsBranchEmpty) {
+		$Branch = (Split-Path ([Regex]::Matches((git ls-remote --symref $repository),"ref:\s+(\S+)\s+HEAD").Groups[1].Value) -Leaf)
+	}
+
+	$branchFolderName = IIf ($masterBranches -contains $Branch) $Branch $($Branch -replace '[\/\\]','_')
+	[void](New-Item -ItemType Directory -Force -Path $branchFolderName)
+	cd $branchFolderName
+
 	$repositoryName = $(Split-Path $repository -Leaf).Replace(".git",[System.String]::Empty);
 	if (Test-Path -PathType Any "$repositoryName\.git") {
 		# git repository exists
@@ -86,23 +100,27 @@ foreach ($repository in $Repositories) {
 	}
 	else {
 		# git repository does not exist
-		if (@("master","main") -contains $Branch) {
+		if ($masterBranches -contains $Branch) {
 			Write-Host "`nCloning REPOSITORY $repositoryName BRANCH $Branch FOLDER $(Get-Location)\$repositoryName"
-			git clone "$repository"
+			git clone -b $Branch "$repository"
 		}
 		else {
 			Remove-Item -Path $repositoryName -Recurse -Force -ErrorAction SilentlyContinue
 			[void](New-Item -ItemType Directory -Force -Path $repositoryName)
 
-			if (-Not (Test-Path -Path "..\master\$repositoryName")) {
-				[void](New-Item -ItemType Directory -Force -Path "..\master")
-				cd "..\master"
-				Write-Host "`nCloning REPOSITORY $repositoryName BRANCH master FOLDER $(Get-Location)"
-				git clone "$repository"
-				cd "$repositoryName"
+			if (Test-Path -Path "..\master\$repositoryName") {
+				cd "..\master\$repositoryName"
+			}
+			elseif (Test-Path -Path "..\main\$repositoryName") {
+				cd "..\main\$repositoryName"
 			}
 			else {
-				cd "..\master\$repositoryName"
+				$remoteMasterBranchName = (Split-Path ([Regex]::Matches((git ls-remote --symref $repository),"ref:\s+(\S+)\s+HEAD").Groups[1].Value) -Leaf)
+				[void](New-Item -ItemType Directory -Force -Path "..\$remoteMasterBranchName")
+				cd "..\$remoteMasterBranchName"
+				Write-Host "`nCloning REPOSITORY $repositoryName BRANCH $remoteMasterBranchName FOLDER $(Get-Location)"
+				git clone "$repository"
+				cd "$repositoryName"
 			}
 
 			Write-Host "`nAdding worktree REPOSITORY $repositoryName BRANCH $Branch FOLDER $(Get-Location)"
@@ -116,9 +134,10 @@ foreach ($repository in $Repositories) {
 			}
 		}
 	}
+
+	cd ..
 }
 
-cd ..
 # remove branch folder if it is empty
 if (-Not (Test-Path -Path "$branchFolderName\*")) {
 	Write-Host "`nFOLDER $branchFolderName is empty, BRANCH $Branch does not exist in any repository, deleting folder.."
