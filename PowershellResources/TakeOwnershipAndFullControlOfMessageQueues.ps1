@@ -25,7 +25,7 @@ PS> TakeOwnershipAndFullControlOfMessageQueues -u "DOMAIN\USER"
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
-https://github.com/fededim/Fededim.Resources/blob/master/LICENSE
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
 
 .NOTES
 

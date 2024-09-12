@@ -27,8 +27,8 @@ None
 
 PS> WorktreeClone -Repositories @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
 
-A local folder "master" or "main" will be created according to each remote repository default branch
-Each repository default branch will be cloned/updated into a subfolder inside the corresponding master/main one
+- A local folder "master" or "main" will be created according to each remote repository default branch
+- Each repository default branch will be cloned/updated into a subfolder inside the corresponding master/main one
 
 PS> WorktreeClone develop @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git")
 
@@ -46,7 +46,7 @@ PS> WorktreeClone release/2.0 @("https://github.com/fededim/Fededim.Resources.gi
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
-https://github.com/fededim/Fededim.Resources/blob/master/LICENSE
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
 
 .NOTES
 
