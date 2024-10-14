@@ -30,6 +30,9 @@ Specifies the local folder used to the git repositories, used when enabling Inte
 If set, all pull requests whose build status is rejected are automatically integrated with the latest origin target branch changes.
 If this operation fails for any reasons (e.g. conflicts or whatever), it is rollbacked and the script is printed at the end for manual integration.
 
+.PARAMETER ForceRequeueRejectedBuilds
+If set, all pull requests whose build status is rejected are automatically requeued notwithstanding the time elapsed from last run.
+
 .INPUTS
 
 None.
@@ -58,7 +61,7 @@ PS> AzureDevopsCheckPR -User <Azure Devops user email> -Organization <organizati
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
-https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 
 .NOTES
 
@@ -71,7 +74,8 @@ param(
 	[Parameter(Mandatory=$true)]  [Alias('o')] [String] $Organization,
 	[Parameter(Mandatory=$true)]  [Alias('p')] [String] $Project,
 	[Parameter(Mandatory=$false)] [Alias('f')] [String] $LocalGitFolder=".",
-	[Parameter(Mandatory=$false)] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false
+	[Parameter(Mandatory=$false)] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false,
+	[Parameter(Mandatory=$false)] [Alias('r')] [switch] $ForceRequeueRejectedBuilds=$false
 	)
 
 
@@ -101,13 +105,13 @@ foreach ($userPull in $userPullRequests) {
 			# If rejected
 			elseif ($($evaluation.status) -eq "rejected") {
 				# If completed less than 2 hours, retry with another build				
-				if ([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) {		
+				if (([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
 					$action.text = $action.text + "Build:rejected-requeued / "
 					$action.color = 'Green'
 					continue	
 				}
-				elseif ($IntegrateRejectedBuilds) {
+				elseif ($IntegrateRejectedBuilds -eq $True) {
 					# otherwise perform a target branch changes integration
 					$originBranch = $($userPull.sourceRefName) -replace "refs/heads/",""
 					$targetBranch = $($userPull.targetRefName) -replace "refs/heads/",""				
