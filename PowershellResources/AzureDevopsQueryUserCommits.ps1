@@ -62,7 +62,7 @@ PS> AzureDevopsQueryUserCommits -User <Azure Devops user email> -Organization <o
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
-https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 
 .NOTES
 
