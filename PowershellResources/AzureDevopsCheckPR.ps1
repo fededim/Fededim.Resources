@@ -95,15 +95,8 @@ foreach ($userPull in $userPullRequests) {
 	foreach ($evaluation in $evaluations) {
 		# Build policy management
 		if ($($evaluation.configuration.type.displayName) -eq "Build") {
-			# If expired requeue it
-			if ($($evaluation.context.isExpired) -eq $true) {
-				az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
-				$action.text = $action.text + "Build:expired-requeued / "
-				$action.color = 'Green'
-				continue
-			}
 			# If rejected
-			elseif ($($evaluation.status) -eq "rejected") {
+			if ($($evaluation.status) -eq "rejected") {
 				# If completed less than 2 hours, retry with another build				
 				if (([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
@@ -122,7 +115,7 @@ foreach ($userPull in $userPullRequests) {
 					$script = $script + "git fetch`ngit checkout $originBranch`ngit merge origin/$targetBranch --commit --no-edit`nif (`$?) {`n`tgit push`n}`nelse {`n`tgit merge --abort`n`tgit restore .`n`tthrow `"merge error`"`n}`n`n`n"
 
 					powershell -Command $script >$null 2>&1
-					if ($?) {
+					if ($? -eq $True) {
 						# if target branch changes integration completed successfully
 						$action.text = $action.text + "Build:integrated-origin / "
 						$ction.color = 'Green'
@@ -134,6 +127,14 @@ foreach ($userPull in $userPullRequests) {
 					}
 				}
 			}
+			# If expired requeue it
+			elseif ($($evaluation.context.isExpired) -eq $true) {
+				az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
+				$action.text = $action.text + "Build:expired-requeued / "
+				$action.color = 'Green'
+				continue
+			}
+
 		}
 		
 		# other policy management, if it is not approved and does not regard reviewers, report it, in console default color if not decided yet (e.g. queued or running) otherwise in red color
