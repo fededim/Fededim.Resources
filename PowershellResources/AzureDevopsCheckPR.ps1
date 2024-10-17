@@ -69,13 +69,13 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 #>
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory=$true)]  [Alias('u')] [String] $User,
-	[Parameter(Mandatory=$true)]  [Alias('a')] [String] $Pat,
-	[Parameter(Mandatory=$true)]  [Alias('o')] [String] $Organization,
-	[Parameter(Mandatory=$true)]  [Alias('p')] [String] $Project,
-	[Parameter(Mandatory=$false)] [Alias('f')] [String] $LocalGitFolder=".",
-	[Parameter(Mandatory=$false)] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false,
-	[Parameter(Mandatory=$false)] [Alias('r')] [switch] $ForceRequeueRejectedBuilds=$false
+	[ValidateNotNullOrEmpty()] [Alias('u')] [String] $User,
+	[ValidateNotNullOrEmpty()] [Alias('a')] [String] $Pat,
+	[ValidateNotNullOrEmpty()] [Alias('o')] [String] $Organization,
+	[ValidateNotNullOrEmpty()] [Alias('p')] [String] $Project,
+	[ValidateNotNullOrEmpty()] [Alias('lgf')] [String] $LocalGitFolder=".",
+	[ValidateNotNullOrEmpty()] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false,
+	[ValidateNotNullOrEmpty()] [Alias('fr')] [switch] $ForceRequeueRejectedBuilds=$false
 	)
 
 
@@ -97,7 +97,7 @@ foreach ($userPull in $userPullRequests) {
 		if ($($evaluation.configuration.type.displayName) -eq "Build") {
 			# If rejected
 			if ($($evaluation.status) -eq "rejected") {
-				# If completed less than 2 hours, retry with another build				
+				# If completed less than 2 hours, retry with another build
 				if (([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
 					$action.text = $action.text + "Build:rejected-requeued / "
@@ -134,7 +134,6 @@ foreach ($userPull in $userPullRequests) {
 				$action.color = 'Green'
 				continue
 			}
-
 		}
 		
 		# other policy management, if it is not approved and does not regard reviewers, report it, in console default color if not decided yet (e.g. queued or running) otherwise in red color

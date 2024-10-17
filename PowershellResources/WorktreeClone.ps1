@@ -55,7 +55,7 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 [CmdletBinding()]
 param(
 	[Parameter(Mandatory=$false)]  [Alias('b')] [String] $Branch,
-	[Parameter(Mandatory=$false)]  [Alias('r')] [String[]] $Repositories
+	[ValidateNotNullOrEmpty()]  [Alias('r')] [String[]] $Repositories = @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git","https://github.com/fededim/BinaryToPowershellScript.git")
 	)
 
 
@@ -71,12 +71,6 @@ function IIf {
 
 
 $masterBranches = @("master","main")
-
-
-if ($Repositories -eq $null) {
-	$Repositories = @("https://github.com/fededim/Fededim.Resources.git","https://github.com/fededim/Fededim.Extensions.Configuration.Protected.git","https://github.com/fededim/BinaryToPowershellScript.git")
-}
-
 
 $IsBranchEmpty = [System.String]::IsNullOrEmpty($Branch)
 
