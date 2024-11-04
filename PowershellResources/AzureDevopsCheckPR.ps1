@@ -30,6 +30,9 @@ Specifies the local folder used to the git repositories, used when enabling Inte
 If set, all pull requests whose build status is rejected are automatically integrated with the latest origin target branch changes.
 If this operation fails for any reasons (e.g. conflicts or whatever), it is rollbacked and the script is printed at the end for manual integration.
 
+.PARAMETER ForceRequeueRejectedBuilds
+If set, all pull requests whose build status is rejected are automatically requeued notwithstanding the time elapsed from last run.
+
 .INPUTS
 
 None.
@@ -58,7 +61,7 @@ PS> AzureDevopsCheckPR -User <Azure Devops user email> -Organization <organizati
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
-https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
+https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 
 .NOTES
 
@@ -66,13 +69,44 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.TXT
 #>
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory=$true)]  [Alias('u')] [String] $User,
-	[Parameter(Mandatory=$true)]  [Alias('a')] [String] $Pat,
-	[Parameter(Mandatory=$true)]  [Alias('o')] [String] $Organization,
-	[Parameter(Mandatory=$true)]  [Alias('p')] [String] $Project,
-	[Parameter(Mandatory=$false)] [Alias('f')] [String] $LocalGitFolder=".",
-	[Parameter(Mandatory=$false)] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false
+	[ValidateNotNullOrEmpty()] [Alias('u')] [String] $User,
+	[ValidateNotNullOrEmpty()] [Alias('a')] [String] $Pat,
+	[ValidateNotNullOrEmpty()] [Alias('o')] [String] $Organization,
+	[ValidateNotNullOrEmpty()] [Alias('p')] [String] $Project,
+	[ValidateNotNullOrEmpty()] [Alias('lgf')] [String] $LocalGitFolder=".",
+	[ValidateNotNullOrEmpty()] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false,
+	[ValidateNotNullOrEmpty()] [Alias('fr')] [switch] $ForceRequeueRejectedBuilds=$false
 	)
+
+
+# A custom parsing function because in Azure Devops REST API the PolicyEvaluationRecord returns a date 
+# in a string format (aaaaaargh we are back in 90s) moreover in an unknown format (probably InvariantCulture)
+# this function tries to parse the date with all possible datetime formats (with days and seconds) of all system cultures
+function ParseDateTime {
+  param(
+    [Parameter(ValueFromPipeline = $true)] [ValidateNotNullOrEmpty()] [String] $DateTimeString
+	)
+	
+	$parsedDate = [System.Datetime]::Now
+	
+	# try the standard way
+	if ([System.Datetime]::TryParse($DateTimeString, [ref]$parsedDate) -eq $true) {
+		return $parsedDate
+	}
+
+	# try everything else
+	foreach ($cultureInfo in [System.Globalization.CultureInfo]::GetCultures([System.Globalization.CultureTypes]::AllCultures)) {
+		foreach ($dateTimePattern in $cultureInfo.DateTimeFormat.GetAllDateTimePatterns()) {
+			if ($dateTimePattern -like "*dd*ss*") {
+				if ([System.DateTime]::TryParseExact($DateTimeString, $dateTimePattern, $cultureInfo, [System.Globalization.DateTimeStyles]::None, [ref]$parsedDate) -eq $true) {
+					return $parsedDate
+				}
+			}
+		}
+	}
+
+	return $null
+}
 
 
 echo $Pat | az devops login
@@ -91,23 +125,16 @@ foreach ($userPull in $userPullRequests) {
 	foreach ($evaluation in $evaluations) {
 		# Build policy management
 		if ($($evaluation.configuration.type.displayName) -eq "Build") {
-			# If expired requeue it
-			if ($($evaluation.context.isExpired) -eq $true) {
-				az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
-				$action.text = $action.text + "Build:expired-requeued / "
-				$action.color = 'Green'
-				continue
-			}
 			# If rejected
-			elseif ($($evaluation.status) -eq "rejected") {
-				# If completed less than 2 hours, retry with another build				
-				if ([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) {		
+			if ($($evaluation.status) -eq "rejected") {
+				# If completed less than 2 hours, retry with another build			
+				if ((([System.DateTime]::Now - $(ParseDateTime $evaluation.completedDate)) -le (New-TimeSpan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
 					$action.text = $action.text + "Build:rejected-requeued / "
 					$action.color = 'Green'
 					continue	
 				}
-				elseif ($IntegrateRejectedBuilds) {
+				elseif ($IntegrateRejectedBuilds -eq $True) {
 					# otherwise perform a target branch changes integration
 					$originBranch = $($userPull.sourceRefName) -replace "refs/heads/",""
 					$targetBranch = $($userPull.targetRefName) -replace "refs/heads/",""				
@@ -118,7 +145,7 @@ foreach ($userPull in $userPullRequests) {
 					$script = $script + "git fetch`ngit checkout $originBranch`ngit merge origin/$targetBranch --commit --no-edit`nif (`$?) {`n`tgit push`n}`nelse {`n`tgit merge --abort`n`tgit restore .`n`tthrow `"merge error`"`n}`n`n`n"
 
 					powershell -Command $script >$null 2>&1
-					if ($?) {
+					if ($? -eq $True) {
 						# if target branch changes integration completed successfully
 						$action.text = $action.text + "Build:integrated-origin / "
 						$ction.color = 'Green'
@@ -129,6 +156,13 @@ foreach ($userPull in $userPullRequests) {
 						$rejectedBuildIntegrationScript = $rejectedBuildIntegrationScript + $script				
 					}
 				}
+			}
+			# If expired requeue it
+			elseif ($($evaluation.context.isExpired) -eq $true) {
+				az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
+				$action.text = $action.text + "Build:expired-requeued / "
+				$action.color = 'Green'
+				continue
 			}
 		}
 		
