@@ -79,6 +79,36 @@ param(
 	)
 
 
+# A custom parsing function because in Azure Devops REST API the PolicyEvaluationRecord returns a date 
+# in a string format (aaaaaargh we are back in 90s) moreover in an unknown format (probably InvariantCulture)
+# this function tries to parse the date with all possible datetime formats (with days and seconds) of all system cultures
+function ParseDateTime {
+  param(
+    [Parameter(ValueFromPipeline = $true)] [ValidateNotNullOrEmpty()] [String] $DateTimeString
+	)
+	
+	$parsedDate = [System.Datetime]::Now
+	
+	# try the standard way
+	if ([System.Datetime]::TryParse($DateTimeString, [ref]$parsedDate) -eq $true) {
+		return $parsedDate
+	}
+
+	# try everything else
+	foreach ($cultureInfo in [System.Globalization.CultureInfo]::GetCultures([System.Globalization.CultureTypes]::AllCultures)) {
+		foreach ($dateTimePattern in $cultureInfo.DateTimeFormat.GetAllDateTimePatterns()) {
+			if ($dateTimePattern -like "*dd*ss*") {
+				if ([System.DateTime]::TryParseExact($DateTimeString, $dateTimePattern, $cultureInfo, [System.Globalization.DateTimeStyles]::None, [ref]$parsedDate) -eq $true) {
+					return $parsedDate
+				}
+			}
+		}
+	}
+
+	return $null
+}
+
+
 echo $Pat | az devops login
 
 $userPullRequests = (az repos pr list --organization "https://dev.azure.com/$Organization" --project $Project --creator $User) | ConvertFrom-Json
@@ -97,8 +127,8 @@ foreach ($userPull in $userPullRequests) {
 		if ($($evaluation.configuration.type.displayName) -eq "Build") {
 			# If rejected
 			if ($($evaluation.status) -eq "rejected") {
-				# If completed less than 2 hours, retry with another build
-				if (([System.DateTime]::Now - [System.DateTime]::Parse($($evaluation.completedDate)) -le (new-timespan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
+				# If completed less than 2 hours, retry with another build			
+				if ((([System.DateTime]::Now - $(ParseDateTime $evaluation.completedDate)) -le (New-TimeSpan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
 					$action.text = $action.text + "Build:rejected-requeued / "
 					$action.color = 'Green'
