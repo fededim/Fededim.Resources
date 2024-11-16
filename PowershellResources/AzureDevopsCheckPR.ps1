@@ -83,9 +83,9 @@ param(
 	)
 
 
-# A custom parsing function because in Azure Devops REST API the PolicyEvaluationRecord returns a date 
-# in a string format (aaaaaargh we are back in 90s) moreover in an unknown format (probably InvariantCulture)
-# this function tries to parse the date with all possible datetime formats (with days and seconds) of all system cultures
+# This function is a custom datetime parsing function which tries to parse the date with all possible datetime formats 
+# (with days and seconds) of all system cultures. It was used temporarily because there was a bug on completed date, 
+# now it is not used anymore, I still keep it for now, after thorough testing I will remove it
 function ParseDateTime {
   param(
     [Parameter(ValueFromPipeline = $true)] [ValidateNotNullOrEmpty()] [String] $DateTimeString
@@ -131,8 +131,8 @@ foreach ($userPull in $userPullRequests) {
 		if ($($evaluation.configuration.type.displayName) -eq "Build") {
 			# If rejected
 			if ($($evaluation.status) -eq "rejected") {
-				# If completed less than 2 hours, retry with another build			
-				if ((([System.DateTime]::Now - $(ParseDateTime $evaluation.completedDate)) -le (New-TimeSpan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
+				# If completed less than 2 hours, retry with another build
+				if ((([System.DateTime]::Now.Subtract($($evaluation.completedDate))) -le (New-TimeSpan -minutes 120)) -or ($ForceRequeueRejectedBuilds -eq $True)) {		
 					az repos pr policy queue --organization "https://dev.azure.com/$Organization" --id $($userPull.pullRequestId) --evaluation-id $evaluation.evaluationId | Out-Null
 					$action.text = $action.text + "Build:rejected-requeued / "
 					$action.color = 'Green'
