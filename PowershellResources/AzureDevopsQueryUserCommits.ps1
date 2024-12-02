@@ -46,7 +46,7 @@ None.
 A list of user commits matching the above parameters. The returned information contains:
 - Commit date
 - Commit comment
-- Commit hash or a hyperlink to commit if you use Windows Terminal
+- Commit hash or a hyperlink to commit webpage if you use Windows Terminal
 
 .EXAMPLE
 
