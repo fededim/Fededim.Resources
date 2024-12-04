@@ -56,7 +56,7 @@
     "SmtpSecure": true,
     "SmtpSecureMode": 1,
     "SenderName": "WinAcme",
-    "SenderAddress": "<stmp sender email>",
+    "SenderAddress": "<sender email>",
     "ReceiverAddresses": ["<receiver1 email>","<receiver2 email>"],
     "EmailOnSuccess": true,
     "ComputerName": null
