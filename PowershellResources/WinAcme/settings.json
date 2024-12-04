@@ -56,7 +56,7 @@
     "SmtpSecure": true,
     "SmtpSecureMode": 1,
     "SenderName": "WinAcme",
-    "SenderAddress": "<sender email>",
+    "SenderAddress": "<stmp sender email>",
     "ReceiverAddresses": ["<receiver1 email>","<receiver2 email>"],
     "EmailOnSuccess": true,
     "ComputerName": null
@@ -115,12 +115,12 @@
       "DefaultProtectionMode": "default"
     },
     "PemFiles": {
-      "DefaultPath": ".\\config\\acme-v02.api.letsencrypt.org\\Certificates",
-      "DefaultPassword": "letsencrypt"
+      "DefaultPath": null,
+      "DefaultPassword": null
     },
     "PfxFile": {
-      "DefaultPath": ".\\config\\acme-v02.api.letsencrypt.org\\Certificates",
-      "DefaultPassword": "letsencrypt",
+      "DefaultPath": null,
+      "DefaultPassword": null,
       "DefaultProtectionMode": "default"
     }
   },

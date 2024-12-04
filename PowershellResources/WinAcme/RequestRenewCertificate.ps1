@@ -5,7 +5,8 @@ Utility script to obtain and renew a free SSL certificate from Let's Encrypt usi
 
 .DESCRIPTION
 
-You must specify the Azure Devops user email (in $User), the organization (in $Organization), the project (in $Project) and a personal access token (in $Pat)
+You must specify the domain (in $Domain), the possible subject alternate names (in $SubjectAlternativeNames), an email address to associate to the ACME account (in $AcmeEmailAddress) and the certificate password to use (in $CertificatePassword) to store it into $CertificatePath.
+You should tweak settings.json file (at least enter the SMTP server settings in order receive an email every time the certificate is renewed)
 
 .PARAMETER Domain
 Specifies the domain you own for which you want to obtain the certificate
@@ -19,6 +20,19 @@ Email address to link to your ACME account.
 .PARAMETER ValidationPort
 Specifies a local tcp port which must be forwarded by the external firewall to the server running the script in order to perform domain validation through self validation mode.
 Win-Acme during its execution will start locally a simple web server on this port just for exposing a file which will be retrieved by acme server connecting to http://<Domain> (public external port 80) just to verify the ownership of the domain automatically.
+If not passed, it defaults to 80.
+
+.PARAMETER CertificatePath
+Specifies the path where to save the certificate. If not passed, it defaults to .\config\acme-v02.api.letsencrypt.org\Certificates
+
+.PARAMETER CertificatePassword
+Specifies the password used to encrypt the certificate (pem/pfx) stored in $CertificatePath
+
+.PARAMETER Force
+Specifies to perform a renewal disregarding the validity of current certificate
+
+.PARAMETER Verbose
+Specifies to output a verbose log
 
 .INPUTS
 
@@ -30,7 +44,7 @@ The execution log
 
 .EXAMPLE
 
-PS> 
+PS> .\RequestRenewCertificate.ps1 -Domain "mydomain.com" -SubjectAlternativeNames @("www.mydomain.com","ftp.mydomain.com","vpn.mydomain.com") -AcmeEmailAddress "user@mydomain.com" -CertificatePassword "SecretPassword"
 
 .LINK
 
@@ -44,10 +58,13 @@ https://www.win-acme.com/reference/cli
 #>
 [CmdletBinding()]
 param(
-	[ValidateNotNullOrEmpty()] [Alias('d')] [String] $Domain = "fdm-in.freeddns.org",
-	[Alias('san')] [String[]] $SubjectAlternativeNames = @("www.fdm-in.freeddns.org","vpn.fdm-in.freeddns.org","homeassistant.fdm-in.freeddns.org"),	
-	[ValidateNotNullOrEmpty()] [Alias('e')] [String] $AcmeEmailAddress = "federico.dimarco@gmail.com",
-	[ValidateNotNullOrEmpty()] [Alias('p')] [Int16] $ValidationPort = 8082
+	[ValidateNotNullOrEmpty()] [Alias('d')] [String] $Domain,
+	[Alias('san')] [String[]] $SubjectAlternativeNames,	
+	[ValidateNotNullOrEmpty()] [Alias('e')] [String] $AcmeEmailAddress,
+	[Alias('pt')] [Nullable[Int16]] $ValidationPort,
+	[Alias('cp')] [String] $CertificatePath,
+	[ValidateNotNullOrEmpty()] [Alias('p')] [String] $CertificatePassword,
+	[Parameter(Mandatory=$false)]  [Alias('f')] [switch] $Force = $false
 	)
 
 	function TernaryExpression {
@@ -65,6 +82,8 @@ param(
 		}
 	}
 
+	$verbose = ('-Verbose' -in $MyInvocation.UnboundArguments -or $MyInvocation.BoundParameters.ContainsKey('Verbose'))
+	
 	# check that win-acme tool is installed, if not install it
 	dotnet tool list win-acme | Out-Null
 	if ($? -eq $false) {
@@ -74,7 +93,7 @@ param(
 	
 	# check that Webadministration module is installed, if not install it
 	$module = (Get-WindowsOptionalFeature -FeatureName 'IIS-WebServerManagementTools' -Online)
-	if ($module -eq $null) {
+	if ($module -eq $null -or $($module.State) -eq 'Disabled') {
 		Write-Host "Webadministration powershell module not installed, installing it..."	
 		Enable-WindowsOptionalFeature -FeatureName 'IIS-WebServerManagementTools' -Online -All
 	}
@@ -90,20 +109,29 @@ param(
 	# registers a scheduled task to update it (after "renewalDays" as specified in configuration file settings.json)
 	# sends an email with the result (smtp settings and receiver addresses are defined inside settings.json)
 
-	$AdditionalHosts = TernaryExpression ($($SubjectAlternativeNames.Count) -eq 0) '' ([System.String]::Join(",",$SubjectAlternativeNames))
-	$Hosts = $Domain + ',' + $AdditionalHosts
+	$additionalHosts = TernaryExpression ($($SubjectAlternativeNames.Count) -eq 0) '' ([System.String]::Join(",",$SubjectAlternativeNames))
+	$hosts = $Domain + ',' + $additionalHosts
 
-	# add --verbose for troubleshooting
-	wacs.exe --accepttos --source manual --host $Hosts --validation selfhosting --validationport $ValidationPort --store "certificatestore,pemfiles,pfxfile" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --ocsp-must-staple
-
-	# updates the certificate on the https website found on the local IIS
-	if ($? -eq $true) {
-		$lastCertificate = ((Get-ChildItem Cert:\LocalMachine\WebHosting ) | Where { $_.SubjectName.Name -like "*$Domain*" -and $_.NotAfter -ge (Get-Date) })[0]
-
-		foreach ($site in (Get-ChildItem -Path "IIS:\Sites")) {
-			foreach ($binding in ($site.Bindings.Collection | where {( $_.protocol -eq 'https')})) {
-				$binding.AddSslCertificate($lastCertificate.Thumbprint, "WebHosting")
-				Write-Host "`nUpdated certificate on site $($Site.Name) binding $($binding.bindingInformation) with thumbprint $($lastCertificate.Thumbprint) expiry date $($lastCertificate.NotAfter)"
-			}
-		}
+	if ($ValidationPort -eq $null) {
+		$ValidationPort = 80
 	}
+
+	if ([System.String]::IsNullOrEmpty($CertificatePath)) {
+		$CertificatePath = ".\config\acme-v02.api.letsencrypt.org\Certificates"
+	}
+	
+	$null = New-Item -ItemType Directory -Path $CertificatePath -Force
+	$CertificatePath = (Resolve-Path -Path $CertificatePath).Path
+	$UpdateIISCertificatesScriptPath = (Resolve-Path -Path ".\UpdateIISCertificates.ps1").Path
+
+	$commandLine = "wacs.exe --accepttos --source manual --host $hosts --validation selfhosting --validationport $ValidationPort --store `"certificatestore,pemfiles,pfxfile`" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --ocsp-must-staple --pemfilespath `"$CertificatePath`" --pempassword `"$CertificatePassword`" --pfxfilepath `"$CertificatePath`" --pfxpassword `"$CertificatePassword`" --installation script --script `"$UpdateIISCertificatesScriptPath`" --scriptparameters `"{CertThumbprint}`""
+	
+	if ($Force -eq $true) {
+		$commandLine = $commandLine + " --force --nocache"
+	}
+	
+	if ($verbose -eq $true) {
+		$commandLine = $commandLine + " --verbose"
+	}
+	
+	Invoke-Expression $commandLine
