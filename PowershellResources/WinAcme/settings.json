@@ -8,7 +8,10 @@
   "UI": {
     "DateFormat": "yyyy/M/d",
     "PageSize": 50,
-    "TextEncoding": "utf-8"
+    "TextEncoding": "utf-8",
+    "Color": {
+      "Background": null
+    }
   },
   "Acme": {
     "DefaultBaseUri": "https://acme-v02.api.letsencrypt.org/",
@@ -33,7 +36,8 @@
     "ReuseDays": 1,
     "DeleteStaleFiles": true,
     "DeleteStaleFilesDays": 120,
-    "Path": null
+    "Path": null,
+    "ProtectionMode": "default"
   },
   "ScheduledTask": {
     "RenewalDays": 55,
@@ -107,15 +111,17 @@
     },
     "CentralSsl": {
       "DefaultPath": null,
-      "DefaultPassword": null
+      "DefaultPassword": null,
+      "DefaultProtectionMode": "default"
     },
     "PemFiles": {
-      "DefaultPath": "certs",
-      "DefaultPassword": null
+      "DefaultPath": ".\\config\\acme-v02.api.letsencrypt.org\\Certificates",
+      "DefaultPassword": "letsencrypt"
     },
     "PfxFile": {
-      "DefaultPath": "certs",
-      "DefaultPassword": "letsencrypt"
+      "DefaultPath": ".\\config\\acme-v02.api.letsencrypt.org\\Certificates",
+      "DefaultPassword": "letsencrypt",
+      "DefaultProtectionMode": "default"
     }
   },
   "Installation": {
