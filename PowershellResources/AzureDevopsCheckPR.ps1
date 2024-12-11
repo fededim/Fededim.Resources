@@ -185,9 +185,15 @@ foreach ($userPull in $userPullRequests) {
 			}
 		}
 	}
+
+
+	if ($($userPull.mergeStatus) -ne "succeeded") {
+		$action.text = $action.text + "Merge:$($userPull.mergeStatus) / " 
+		$action.color = 'Red'
+	}
 	
 	# log pull request status if there is something which needs attention
-	if (![System.String]::IsNullOrEmpty($action.text) -or ($($userPull.mergeStatus) -ne "succeeded")) {
+	if (![System.String]::IsNullOrEmpty($($action.text))) {
 		Write-Host "https://dev.azure.com/$Organization/$Project/_git/$($userPull.repository.name)/pullrequest/$($userPull.pullRequestId) [$($action.text)]" -ForegroundColor $action.color
 	}
 }
