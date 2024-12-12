@@ -87,15 +87,22 @@ param(
 	# check that win-acme tool is installed, if not install it
 	dotnet tool list win-acme | Out-Null
 	if ($? -eq $false) {
-		Write-Host "Win-Acme not installed, installing it for current user..."
+		Write-Host "Win-Acme is not installed, installing it for current user..."
 		dotnet tool install win-acme --create-manifest-if-needed
 	}
 	
 	# check that Webadministration module is installed, if not install it
 	$module = (Get-WindowsOptionalFeature -FeatureName 'IIS-WebServerManagementTools' -Online)
 	if ($module -eq $null -or $($module.State) -eq 'Disabled') {
-		Write-Host "Webadministration powershell module not installed, installing it..."	
+		Write-Host "Webadministration powershell module is not installed, installing it..."	
 		Enable-WindowsOptionalFeature -FeatureName 'IIS-WebServerManagementTools' -Online -All
+	}
+
+	# check that OpenSSL is installed, if not install it
+	winget list FireDaemon.OpenSSL | Out-Null
+	if ($? -eq $false) {
+		Write-Host "Openssl is not installed, installing it..."
+		winget install FireDaemon.OpenSSL
 	}
 
 	Import-Module Webadministration   #for iis management
@@ -124,7 +131,7 @@ param(
 	$CertificatePath = (Resolve-Path -Path $CertificatePath).Path
 	$UpdateIISCertificatesScriptPath = (Resolve-Path -Path ".\UpdateIISCertificates.ps1").Path
 
-	$commandLine = "wacs.exe --accepttos --source manual --host $hosts --validation selfhosting --validationport $ValidationPort --store `"certificatestore,pemfiles,pfxfile`" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --ocsp-must-staple --pemfilespath `"$CertificatePath`" --pempassword `"$CertificatePassword`" --pfxfilepath `"$CertificatePath`" --pfxpassword `"$CertificatePassword`" --installation script --script `"$UpdateIISCertificatesScriptPath`" --scriptparameters `"{CertThumbprint}`""
+	$commandLine = "wacs.exe --accepttos --source manual --host $hosts --validation selfhosting --validationport $ValidationPort --store `"certificatestore,pemfiles,pfxfile`" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --ocsp-must-staple --pemfilespath `"$CertificatePath`" --pempassword `"$CertificatePassword`" --pfxfilepath `"$CertificatePath`" --pfxpassword `"$CertificatePassword`" --installation script --script `"$UpdateIISCertificatesScriptPath`" --scriptparameters `"'{CertThumbprint}' 'SEVPNSERVERDEV' '$CertificatePath' '$CertificatePassword'`""
 	
 	if ($Force -eq $true) {
 		$commandLine = $commandLine + " --force --nocache"
