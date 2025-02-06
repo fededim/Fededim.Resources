@@ -142,3 +142,9 @@ param(
 	}
 	
 	Invoke-Expression $commandLine
+	
+	# update scheduled tasks working directory with the right one
+	$schTask = (Get-ScheduledTask -TaskName "win-acme*") | Sort-Object -Property Date -Descending | Select-Object -First 1
+	$action = $schTask.Actions | Select -First 1
+	$action.WorkingDirectory = (Resolve-Path -Path '.').Path
+	Set-ScheduledTask -TaskName "$($schTask.TaskName)" -Action $action
