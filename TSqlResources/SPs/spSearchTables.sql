@@ -25,9 +25,9 @@ exec spSearchTables 'North%','d%',NULL,NULL,NULL,NULL -- returns all tables with
 exec spSearchTables 'North%',NULL,'S%',NULL,NULL,NULL -- returns tables starting with S% with all columns in databases starting with North% in the server
 exec spSearchTables 'North%',NULL,'S%','%int%',NULL,NULL -- returns tables starting with S% with all columns in databases starting with North% in the server and type %int%
 exec spSearchTables 'North%',NULL,'S%',NULL,'P%',NULL -- returns tables starting with S% with columns starting with P% in databases starting with North% in the server 
-exec spSearchTables 'North%',NULL,'S%',NULL,'P%','30%' -- returns tables starting with S% with columns starting with P% whose value matches 30% in databases starting with North% in the server
+exec spSearchTables 'North%',,NULL,'S%',NULL,'P%','30%' -- returns tables starting with S% with columns starting with P% whose value matches 30% in databases starting with North% in the server
 exec spSearchTables NULL,NULL,NULL,NULL,NULL,'30%' -- returns all table and all columns whose value matches 30% in all databases in the server
-exec spSearchTables NULL,NULL,NULL,'geo%',NULL,'POINT (-122.274625789912 47.7631154083121)' -- WKT query: returns all table and all columns whose columntype is spatial (e.g. geometry or geography) and contain the specified WKT entity
+exec spSearchTables NULL,NULL,NULL,'geo%',NULL,'POINT(-122.35900 47.65129).MakeValid()' -- WKT query: returns all table and all columns whose columntype is spatial (e.g. geometry or geography) and contain the specified WKT entity
 
 VERSION HISTORY:
   20231021	fededim		Initial Release
@@ -38,12 +38,18 @@ VERSION HISTORY:
 							- bugfix and improvement on geometry and geography column types
 							- improvement on MatchingSelect output column: now it returns the converted columns used to perform where conditions
 							- WKT can be used in @valuePattern to perform STContains query on spatial columns where supported (e.g. database compatibility level >=130)
-  29112023	fededim		bugfix on MatchingSelect query, collate statement was not passed for converted columns 
-						performance improvement: instead of performing twice the same query to populate columnListSelect and columnList
-												 the code now returns an xml result (columnListXml) with both columns using just one single query
+  20250208	fededim		bugfixes:
+							- T-SQL CONCAT function only supports up to 254 arguments, so I had to switch to using classic + to concatenate string (I discovered this bug while searching a database with a table made up of 293 columns!)
+							- string truncation due to implicit conversion: CAST('''' as NVARCHAR(MAX)) has to added at the beginning of a string concatenation in order to force the string to be actually treated as nvarchar(max) avoiding any kind of truncation(see https://stackoverflow.com/a/17785175/4375005)
+							- added missing N in strings
+						improved the dump of the full T-SQL query being executed by doing it in chunks of 4000 characters due to the limitation of T-SQL PRINT function
 *********************************************************************************************/
 
-CREATE OR ALTER PROCEDURE spSearchTables
+IF EXISTS(SELECT * FROM sys.procedures WHERE [name] LIKE 'spSearchTables' AND [schema_id] = SCHEMA_ID('dbo'))
+	DROP PROCEDURE dbo.spSearchTables
+GO
+
+CREATE PROCEDURE [dbo].[spSearchTables]
 (@dbSearchPattern nvarchar(256)=NULL, 
  @schemaSearchPattern nvarchar(256),
  @tableSearchPattern nvarchar(256),
@@ -52,6 +58,8 @@ CREATE OR ALTER PROCEDURE spSearchTables
  @valuePattern nvarchar(1000)=NULL)
 AS
 BEGIN
+
+SET CONCAT_NULL_YIELDS_NULL OFF
 
 -- Create output temporary table
 CREATE TABLE #Output
@@ -73,7 +81,7 @@ USE [?]
 
 DECLARE @dbName nvarchar(200), @schemaName nvarchar(200),@tableName nvarchar(200), @columnName nvarchar(200), @columnType nvarchar(200), @fullTableName nvarchar(1000)  -- current data
 DECLARE @oldDbName nvarchar(200), @oldSchemaName nvarchar(200),@oldTableName nvarchar(200), @oldFullTableName nvarchar(1000)  -- old data
-DECLARE @whereColumnName nvarchar(200), @whereCondition nvarchar(400), @whereClause nvarchar(max), @sql nvarchar(max), @selectSql nvarchar(max), @columnListXml nvarchar(max)   -- helper variables
+DECLARE @whereColumnName nvarchar(max), @whereCondition nvarchar(max), @whereClause nvarchar(max), @sql nvarchar(max), @selectSql nvarchar(max), @columnListSelect nvarchar(max), @columnList nvarchar(max)  -- helper variables
 
 -- try to parse innerValuePattern with geometry and geography types
 DECLARE @geometry geometry, @geography geography, @compatibilityLevel int
@@ -100,7 +108,6 @@ INNER JOIN sys.types tp ON tp.user_type_id = c.user_type_id AND (@innerColumnTyp
 +CHAR(10)+N'ORDER BY FullTableName
 
 SET @oldFullTableName = NULL
-SET @columnListXml = N''''
 
 OPEN [tables]
 
@@ -111,40 +118,46 @@ BEGIN
 	BEGIN
 		IF (@whereClause IS NOT NULL)
 		BEGIN
-			SET @whereClause = REPLACE(CONCAT(@whereClause,N''[???]'') COLLATE DATABASE_DEFAULT,N''OR [???]'',N'''')  --trim last "OR "
-			SET @selectSql = N''SELECT [??] FROM ''+@oldFullTableName+N'' WHERE '' + @whereClause 
+			SET @whereClause = CAST('''' as NVARCHAR(MAX)) + REPLACE(CONCAT(@whereClause,N''[???]'') COLLATE DATABASE_DEFAULT,N''OR [???]'',N'''')  --trim last "OR "
+			SET @selectSql = CAST('''' as NVARCHAR(MAX)) + N''SELECT [??] FROM ''+@oldFullTableName+N'' WHERE '' + @whereClause 
 		END
 		ELSE
 			SET @selectSql = NULL
 
-		SET @columnListXml = CONCAT(N''CONCAT(N''''<root>'''','',@columnListXml,N''''''</root>'''')'')
-
-		--PRINT @columnListXml
-
-		IF (@columnListXml LIKE N''%<columnListSelect>%</columnListSelect>%'' COLLATE DATABASE_DEFAULT)
+		IF (@columnListSelect IS NOT NULL)
 		BEGIN
-			SET @sql = N'' INSERT INTO #Output SELECT [Database],[Schema],[Table],[FullTableName],(SELECT REPLACE(CONCAT((SELECT CAST(x.col.value(''''.'''',''''nvarchar(max)'''')+N'''','''' AS NVARCHAR(MAX)) FROM [ColumnListXml].nodes(''''/root/column/columnList'''') AS x(col) FOR XML PATH('''''''')),''''[???]''''),'''',[???]'''','''''''')) AS [MatchingColumns],(SELECT REPLACE(CONCAT((SELECT CAST(x.col.value(''''.'''',''''nvarchar(max)'''')+N'''','''' AS NVARCHAR(MAX)) FROM [ColumnListXml].nodes(''''/root/column/columnListSelect'''') AS x(col) FOR XML PATH('''''''')),''''[???]''''),'''',[???]'''','''''''')) AS [MatchingWhereColumns],[MatchingSelect] FROM (SELECT  ''''''+@oldDbName+N'''''' AS [Database],''''''+@oldSchemaName+N'''''' AS [Schema],''''''+@oldTableName+N''''''  AS [Table],''''''+@oldFullTableName+N'''''' AS [FullTableName],CAST(''+@columnListXml+N'' AS xml) AS [ColumnListXml],''''''+REPLACE(@selectSql COLLATE DATABASE_DEFAULT,'''''''','''''''''''')+N'''''' AS [MatchingSelect]''+IIF(@whereClause IS NOT NULL,N'' FROM ''+@oldFullTableName+N'' WHERE ''+@whereClause,N'''')+N'') AS Nested''
+			SET @columnListSelect = CAST('''' as NVARCHAR(MAX)) + N''REPLACE((CAST('''''''' as NVARCHAR(MAX))+''+@columnListSelect + N''''''[???]'''') COLLATE DATABASE_DEFAULT,N'''',[???]'''',N'''''''')''  -- trim last ","
+			SET @columnList = CAST('''' as NVARCHAR(MAX)) + N''REPLACE((CAST('''''''' as NVARCHAR(MAX))+''+@columnList + N''''''[???]'''') COLLATE DATABASE_DEFAULT,N'''',[???]'''',N'''''''')''  -- trim last ","
+			SET @sql = CAST('''' as NVARCHAR(MAX)) + N'' INSERT INTO #Output SELECT  ''''''+@oldDbName+N'''''',''''''+@oldSchemaName+N'''''',''''''+@oldTableName+N'''''',''''''+@oldFullTableName+N'''''',''+@columnList+N'',''+@columnListSelect+N'',''''''+REPLACE(@selectSql COLLATE DATABASE_DEFAULT,N'''''''',N'''''''''''')+''''''''+IIF(@whereClause IS NOT NULL,N'' FROM ''+@oldFullTableName+N'' WHERE ''+@whereClause,N'''')
 		END
 		ELSE IF (@oldDbName IS NOT NULL)
 		BEGIN
-			SET @sql = N'' INSERT INTO #Output SELECT [Database],[Schema],[Table],[FullTableName],(SELECT REPLACE(CONCAT((SELECT CAST(x.col.value(''''.'''',''''nvarchar(max)'''')+N'''','''' AS NVARCHAR(MAX)) FROM [ColumnListXml].nodes(''''/root/column/columnList'''') AS x(col) FOR XML PATH('''''''')),''''[???]''''),'''',[???]'''','''''''')) AS [MatchingColumns],NULL AS [MatchingWhereColumns],[MatchingSelect] FROM (SELECT  ''''''+@oldDbName+N'''''' AS [Database],''''''+@oldSchemaName+N'''''' AS [Schema],''''''+@oldTableName+N'''''' AS [Table],''''''+@oldFullTableName+N'''''' AS [FullTableName],CAST(''+@columnListXml+N'' AS xml) AS [ColumnListXml],NULL AS [MatchingSelect]) AS Nested''
+			SET @columnList = CAST('''' as NVARCHAR(MAX)) + N''REPLACE((CAST('''''''' as NVARCHAR(MAX))+''+@columnList + N''''''[???]'''') COLLATE DATABASE_DEFAULT,N'''',[???]'''',N'''''''')''  -- trim last ","
+			SET @sql = CAST('''' as NVARCHAR(MAX)) + N'' INSERT INTO #Output SELECT  ''''''+@oldDbName+N'''''',''''''+@oldSchemaName+N'''''',''''''+@oldTableName+N'''''',''''''+@oldFullTableName+N'''''',''+@columnList+N'',NULL,NULL''
 		END
 
 		IF (@selectSql IS NOT NULL)
-			SET @sql = N''IF EXISTS (''+REPLACE(@selectSql COLLATE DATABASE_DEFAULT,''[??]'',''1'')+N'')'' +@sql
+			SET @sql = CAST('''' as NVARCHAR(MAX)) + N''IF EXISTS (''+REPLACE(@selectSql COLLATE DATABASE_DEFAULT,N''[??]'',N''1'')+N'')'' +@sql
 
 		IF (@sql IS NOT NULL)
 		BEGIN
-			PRINT @sql
+			DECLARE @offsetToPrint bigint = 0
+
+			WHILE (@offsetToPrint<len(@sql))
+			BEGIN
+				PRINT substring(@sql,@offsetToPrint, CASE WHEN len(@sql)-@offsetToPrint < 4000 THEN len(@sql)+1-@offsetToPrint ELSE 4000 END) -- it gets truncated to 4000 characters
+				SET @offsetToPrint = @offsetToPrint + 4000
+			END
 
 			EXECUTE sp_executesql @sql
 		END
 
 		IF (@@FETCH_STATUS<>0)
 			BREAK
-
+			
 		SET @whereClause = NULL
-		SET @columnListXml = N''''
+		SET @columnListSelect = NULL
+		SET @columnList = NULL
 	END
 
 	IF (@innerValuePattern IS NOT NULL)
@@ -155,23 +168,25 @@ BEGIN
 		BEGIN	
 			IF (@compatibilityLevel>=130 AND ((@columnType COLLATE DATABASE_DEFAULT = N''geometry'' AND @geometry IS NOT NULL)
 				OR (@columnType COLLATE DATABASE_DEFAULT = N''geography'' AND @geography IS NOT NULL)))
-				SET @whereCondition = N''COALESCE(''+@whereColumnName+N''.STContains(''+IIF(@columnType COLLATE DATABASE_DEFAULT = N''geometry'',N''geometry::Parse(''''''+@geometry.ToString()+N'''''')),0)=1)'',N''geography::Parse(''''''+@geography.ToString()+N'''''')),0)=1'')
+				SET @whereCondition = CAST('''' as NVARCHAR(MAX)) + N''COALESCE(''+@whereColumnName+N''.STContains(''+IIF(@columnType COLLATE DATABASE_DEFAULT = N''geometry'',N''geometry::Parse(N''''''+@geometry.ToString()+N'''''')),0)=1)'',N''geography::Parse(N''''''+@geography.ToString()+N'''''')),0)=1'')
 			ELSE
-				SET @whereCondition = N''('' + @whereColumnName+N''.ToString() LIKE N''''''+@innerValuePattern+N'''''' COLLATE DATABASE_DEFAULT)''
+				SET @whereCondition = CAST('''' as NVARCHAR(MAX)) + N''('' + @whereColumnName+N''.ToString() LIKE N''''''+@innerValuePattern+N'''''' COLLATE DATABASE_DEFAULT)''
 
 			SET @whereColumnName = @whereColumnName+N''.ToString()''
 		END
 		ELSE
-			SET @whereCondition = N''('' + @whereColumnName+N'' LIKE ''''''+@innerValuePattern+N''''''''+IIF(@whereColumnName<>@columnName,N'' COLLATE DATABASE_DEFAULT'',N'''')+'')''
+			SET @whereCondition = CAST('''' as NVARCHAR(MAX)) + N''('' + @whereColumnName+N'' LIKE ''''''+@innerValuePattern+N'''''')''
 
-		SET @whereClause = COALESCE(@whereClause,N'''') + @whereCondition + N'' OR ''
+		SET @whereClause = CAST('''' as NVARCHAR(MAX)) + @whereClause + @whereCondition + N'' OR ''
 
-		SET @columnListXml = @columnListXml + N''IIF(SUM(CASE WHEN ''+@whereCondition+N'' THEN 1 ELSE 0 END)>0,N''''<column><columnListSelect><![CDATA[''+@whereColumnName+'' AS ''+@columnName+'']]></columnListSelect><columnList><![CDATA[''+@columnName+'']]></columnList></column>'''',N''''''''),''
+		SET @columnListSelect = CAST('''' as NVARCHAR(MAX)) + @columnListSelect + N''IIF(SUM(CASE WHEN ''+@whereCondition+N'' THEN 1 ELSE 0 END)>0,''''''+@whereColumnName+N'' AS ''+@columnName+N'','''',NULL)+''
+		SET @columnList = CAST('''' as NVARCHAR(MAX)) + @columnList + N''IIF(SUM(CASE WHEN ''+@whereCondition+'' THEN 1 ELSE 0 END)>0,N''''''+@columnName+N'','''',NULL)+''
 	END
 	ELSE
 	BEGIN
 		SET @whereClause = NULL
-		SET @columnListXml = @columnListXml + ''N''''<column><columnList><![CDATA[''+@columnName+'']]></columnList></column>'''',''
+		SET @columnListSelect = NULL
+		SET @columnList = CAST('''' as NVARCHAR(MAX)) + @columnList + N''N'''''' + @columnName + N'',''''+''
 	END
 
 	SET @oldDbName = @dbName
@@ -192,7 +207,7 @@ DECLARE @offsetToPrint bigint = 0
 
 WHILE (@offsetToPrint<len(@statement))
 BEGIN
-	PRINT substring(@statement,@offsetToPrint, CASE WHEN len(@statement)-@offsetToPrint < 4000 THEN len(@statement)-@offsetToPrint ELSE 4000 END) -- it gets truncated to 4000 characters
+	PRINT substring(@statement,@offsetToPrint, CASE WHEN len(@statement)+1-@offsetToPrint < 4000 THEN len(@statement)-@offsetToPrint ELSE 4000 END) -- it gets truncated to 4000 characters
 	SET @offsetToPrint = @offsetToPrint + 4000
 END
 
