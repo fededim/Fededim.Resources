@@ -40,8 +40,8 @@ VERSION HISTORY:
 							- WKT can be used in @valuePattern to perform STContains query on spatial columns where supported (e.g. database compatibility level >=130)
   20250208	fededim		bugfixes:
 							- T-SQL CONCAT function only supports up to 254 arguments, so I had to switch to using classic + to concatenate string (I discovered this bug while searching a database with a table made up of 293 columns!)
-							- string truncation due to implicit conversion: CAST('''' as NVARCHAR(MAX)) has to added at the beginning of a string concatenation in order to force the string to be actually treated as nvarchar(max) avoiding any kind of truncation(see https://stackoverflow.com/a/17785175/4375005)
-							- added missing N in strings
+							- string truncation due to implicit conversion: CAST('' as NVARCHAR(MAX)) has to added at the beginning of a string concatenation in order to force the string to be actually treated as nvarchar(max) avoiding any kind of truncation(see https://stackoverflow.com/a/17785175/4375005)
+							- added missing N prefix to string literals
 						improved the dump of the full T-SQL query being executed by doing it in chunks of 4000 characters due to the limitation of T-SQL PRINT function
 *********************************************************************************************/
 
