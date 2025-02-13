@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fededim.Utilities", "Fededi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fededim.Utilities.Test", "Fededim.Utilities.Test\Fededim.Utilities.Test.csproj", "{F204D0EB-4132-4728-96E3-A1CF2D17FF25}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonLocalizer", "JsonLocalizer\JsonLocalizer.csproj", "{038A9F06-5126-44EB-8D8E-3250F071DBE3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F204D0EB-4132-4728-96E3-A1CF2D17FF25}.Release|Any CPU.Build.0 = Release|Any CPU
+		{038A9F06-5126-44EB-8D8E-3250F071DBE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{038A9F06-5126-44EB-8D8E-3250F071DBE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{038A9F06-5126-44EB-8D8E-3250F071DBE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{038A9F06-5126-44EB-8D8E-3250F071DBE3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
