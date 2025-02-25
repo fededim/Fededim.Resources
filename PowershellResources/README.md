@@ -4,6 +4,10 @@ A set of general purpose utilites written in Powershell released as open source 
 # [AzureDevopsCheckPR.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsCheckPR.ps1)
 Utility to report the status of pull requests created by a user using Azure Devops REST API.
 
+# [AzureDevopsCherryPick.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsCherryPick.ps1)
+
+Utility to perform a whole pull request cherry pick using Azure Devops REST API (to be used when Azure Devops built-in cherry-pick menu function fails).
+
 # [AzureDevopsQueryUserCommits.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsQueryUserCommits.ps1)
 Utility to list user commits using Azure Devops REST API among all repositories and all their branches.
 
