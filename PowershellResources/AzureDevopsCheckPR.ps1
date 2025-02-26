@@ -79,7 +79,8 @@ param(
 	[ValidateNotNullOrEmpty()] [Alias('lgf')] [String] $LocalGitFolder=".",
 	[ValidateNotNullOrEmpty()] [Alias('i')] [switch] $IntegrateRejectedBuilds=$false,
 	[ValidateNotNullOrEmpty()] [Alias('gsrb')] [switch] $GenerateIntegrationScriptForRejectedBuilds=$false,
-	[ValidateNotNullOrEmpty()] [Alias('fr')] [switch] $ForceRequeueRejectedBuilds=$false
+	[ValidateNotNullOrEmpty()] [Alias('fr')] [switch] $ForceRequeueRejectedBuilds=$false,
+	[Parameter(Mandatory=$false)] [Alias('bm')] [ScriptBlock] $BranchMappings
 	)
 
 
@@ -112,6 +113,23 @@ function ParseDateTime {
 	return $null
 }
 
+if ($BranchMappings -eq $null) {
+	[scriptblock]$BranchMappings = {
+		param([String] $ConversionType,
+			  [String] $LocalGitFolder,
+			  [String] $PullRequestSourceBranch,
+			  [String] $PullRequestTargetBranch,
+			  [String] $TargetBranch)
+		
+		switch($ConversionType) {
+			"ToFolder" {
+				return "$LocalGitFolder\$(Split-Path $TargetBranch -Leaf)"
+				break;
+			}			
+		}
+	}
+}
+
 
 echo $Pat | az devops login
 
@@ -141,8 +159,9 @@ foreach ($userPull in $userPullRequests) {
 				elseif ($IntegrateRejectedBuilds -eq $True -or $GenerateIntegrationScriptForRejectedBuilds -eq $True) {
 					# otherwise perform a target branch changes integration
 					$originBranch = $($userPull.sourceRefName) -replace "refs/heads/",""
-					$targetBranch = $($userPull.targetRefName) -replace "refs/heads/",""				
-					$targetBranchFolder = "$LocalGitFolder\$(Split-Path $targetBranch -Leaf)"
+					$targetBranch = $($userPull.targetRefName) -replace "refs/heads/",""
+
+					$targetBranchFolder = (Invoke-Command -ScriptBlock $BranchMappings -ArgumentList "ToFolder",$LocalGitFolder,$originBranch,$targetBranch,$targetBranch)
 					
 					$script = "# $($userPull.title) https://dev.azure.com/$Organization/$Project/_git/$($userPull.repository.name)/pullrequest/$($userPull.pullRequestId)`n`n"
 					$script = $script + "cd $targetBranchFolder\$($userPull.repository.name)`n"

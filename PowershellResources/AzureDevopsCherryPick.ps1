@@ -67,16 +67,15 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 #>
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory=$false)] [Alias('u')] [String] $User,
-	[Parameter(Mandatory=$false)] [Alias('a')] [String] $Pat,
-	[Parameter(Mandatory=$false)] [Alias('o')] [String] $Organization,
-	[Parameter(Mandatory=$false)] [Alias('p')] [String] $Project,
-	[Parameter(Mandatory=$false)] [Alias('f')] [String] $LocalGitFolder,
-	[ValidateNotNullOrEmpty()] [Alias('pr')] [Nullable[System.Int32]] $PullRequestId = $null,
-	[ValidateNotNullOrEmpty()] [Alias('b')] [String[]] $DestinationBranches = $null,
+	[ValidateNotNullOrEmpty()] [Alias('u')] [String] $User,
+	[ValidateNotNullOrEmpty()] [Alias('a')] [String] $Pat,
+	[ValidateNotNullOrEmpty()] [Alias('o')] [String] $Organization,
+	[ValidateNotNullOrEmpty()] [Alias('p')] [String] $Project,
+	[ValidateNotNullOrEmpty()] [Alias('f')] [String] $LocalGitFolder=".",
+	[ValidateNotNullOrEmpty()] [Alias('pr')] [Nullable[System.Int32]] $PullRequestId,
+	[ValidateNotNullOrEmpty()] [Alias('b')] [String[]] $DestinationBranches,
 	[Parameter(Mandatory=$false)] [Alias('bm')] [ScriptBlock] $BranchMappings
 	)
-
 
 echo $Pat | az devops login
 
@@ -120,19 +119,20 @@ $targetBranch = $($pullRequest.targetRefName) -replace 'refs/heads/',''
 
 $startIndex = [Math]::Max($DestinationBranches.IndexOf($targetBranch)+1,0)
 
-Write-Host "Cherrypicking`n-------------`n"
+Write-Host "Cherrypicking`n-------------`n" -ForegroundColor Green
 for ($i = $startIndex; $i -lt $DestinationBranches.Length; $i++) {
 	$branch = $DestinationBranches[$i]
 
 	# Write-Host "Analyzing PullReq $($pullRequest.title) https://dev.azure.com/$Organization/$Project/_git/$($pullRequest.repository.name)/pullrequest/$($pullRequest.pullRequestId)`n`n" 
 	
-	$cherrypickBranchFolder = (Invoke-Command -ScriptBlock $defaultBranchMappings -ArgumentList "ToFolder",$LocalGitFolder,$originBranch,$targetBranch,$branch)
-	$cherryPickBranch = (Invoke-Command -ScriptBlock $defaultBranchMappings -ArgumentList "ToCherrypickBranch",$LocalGitFolder,$originBranch,$targetBranch,$branch)
+	$cherrypickBranchFolder = (Invoke-Command -ScriptBlock $BranchMappings -ArgumentList "ToFolder",$LocalGitFolder,$originBranch,$targetBranch,$branch)
+	$cherryPickBranch = (Invoke-Command -ScriptBlock $BranchMappings -ArgumentList "ToCherrypickBranch",$LocalGitFolder,$originBranch,$targetBranch,$branch)
 	
-	Write-Host "PullReq $($pullRequest.pullRequestId) [$($pullRequest.title)]`nPR source $originBranch target $targetBranch --> cherrypick $cherryPickBranch`n`n"
+	Write-Host "PullReq $($pullRequest.pullRequestId) [$($pullRequest.title)]`nPR source branch $originBranch target $branch --> cherrypick $cherryPickBranch`n`n" -ForegroundColor Green
 
-	$script = "# $($pullRequest.title) https://dev.azure.com/$Organization/$Project/_git/$($pullRequest.repository.name)/pullrequest/$($pullRequest.pullRequestId)`n"
-	$script = $script +"# Cherrypick to $branch`n`n"
+	$script = "# PR #$($pullRequest.pullRequestId) [$($pullRequest.title)]: https://dev.azure.com/$Organization/$Project/_git/$($pullRequest.repository.name)/pullrequest/$($pullRequest.pullRequestId)`n"
+	$script = $script +"# Source branch $originBranch`n"
+	$script = $script +"# Cherrypicking to $branch creating a new branch $cherryPickBranch`n`n"
 	$script = $script + "cd $cherrypickBranchFolder\$($pullRequest.repository.name)`n"
 	$script = $script + "git fetch`ngit checkout $branch`ngit pull`ngit checkout -b $cherryPickBranch`n`$cherrypicks = @("
 	
@@ -142,7 +142,7 @@ for ($i = $startIndex; $i -lt $DestinationBranches.Length; $i++) {
 	}
 
 	$script = $script + "`"git push -u origin $cherryPickBranch`","
-	$script = $script + "`"az repos pr create --organization ```"https://dev.azure.com/$Organization```" --project ```"$Project```" --repository ```"$($pullRequest.repository.name)```" --title ```"$($pullRequest.title)```" --work-items ```"$workItemsIds```" --auto-complete true --squash true --delete-source-branch true --source-branch ```"$cherryPickBranch```" --target-branch ```"$branch```"`")`n`n"
+	$script = $script + "`"az repos pr create --organization ```"https://dev.azure.com/$Organization```" --project ```"$Project```" --repository ```"$($pullRequest.repository.name)```" --title ```"$($pullRequest.title)```" --description ```"$($pullRequest.description)```" --work-items ```"$workItemsIds```" --auto-complete true --squash true --delete-source-branch true --source-branch ```"$cherryPickBranch```" --target-branch ```"$branch```"`")`n`n"
 
 	$script = $script + "`$i=0`nfor (;`$i -lt `$cherrypicks.Length; `$i++) {`n`tpowershell -Command `$cherrypicks[`$i]`n`tif (`$? -eq `$false) {`n`t`tWrite-Host `"Error while cherry-picking ```"`$(`$cherrypicks[`$i])```"`"`n`t`tbreak`n`t}`n}`n`n"
 	$script = $script + "for (`$j=`$i;`$j -lt `$cherrypicks.Length; `$j++) {`n`tWrite-Host `$cherrypicks[`$j]`n}`n`n"
