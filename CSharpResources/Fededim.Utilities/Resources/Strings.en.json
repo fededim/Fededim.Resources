@@ -1,0 +1,10 @@
+{
+  // sample errors
+  "ErrorAccountLockedOut": "Account is locked out",
+  "ErrorAccountNotConfirmed": "Account is not confirmed",
+  "ErrorBadLoginPassword": "Bad login or password",
+  "ErrorInvalidToken": "Invalid token",
+  "ErrorInvalidRefreshToken": "Invalid refresh token",
+  "ErrorExpiredRefreshToken": "Refresh token has expired",
+  "ErrorSecurityTimestampRefreshToken": "The user has changed the password, you must relogin"
+}
