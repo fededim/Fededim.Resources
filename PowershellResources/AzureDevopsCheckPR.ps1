@@ -178,7 +178,7 @@ foreach ($userPull in $userPullRequests) {
 					if ($? -eq $True) {
 						# if target branch changes integration completed successfully
 						$action.text = $action.text + "Build:integrated-origin / "
-						$ction.color = 'Green'
+						$action.color = 'Green'
 						continue
 					}
 					else {
