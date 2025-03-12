@@ -138,7 +138,8 @@ for ($i = $startIndex; $i -lt $DestinationBranches.Length; $i++) {
 	
 
 	foreach ($commit in $commits) {
-		$script = $script + "`"git cherry-pick $($commit.commitId) # $($commit.comment)`","
+		$comment = if (($($commit.comment) -like '*merge*')) { '#' } else {''}
+		$script = $script + "`"$($comment)git cherry-pick $($commit.commitId) # $($commit.comment)`","
 	}
 
 	$script = $script + "`"git push -u origin $cherryPickBranch`","
