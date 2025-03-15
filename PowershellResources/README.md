@@ -10,6 +10,9 @@ Utility to perform a whole pull request cherry pick using Azure Devops REST API 
 # [AzureDevopsQueryUserCommits.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsQueryUserCommits.ps1)
 Utility to list user commits using Azure Devops REST API among all repositories and all their branches.
 
+# [RecreateSitemapXml.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/RecreateSitemapXml.ps1)
+Utility to recreate a sitemap.xml file of a website.
+
 # [IndexNowIndexWebsites.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/IndexNowIndexWebsites.ps1)
 Utility to perform indexing of webpages through IndexNow of one or more domains using the website sitemap.xml.
 
