@@ -81,7 +81,7 @@ try {
 		$fileEntryRelativePathUri = New-Object System.Uri($fileEntryRelativePath.Replace("\","/"),[System.UriKind]::Relative)
 		$fileEntryUri = New-Object System.Uri($domainUri, $fileEntryRelativePath)
 
-		$escapedFileEntryUri = ($fileEntryUri.ToString()).Replace($fileEntry.Name,[System.Uri]::EscapeDataString($fileEntry.Name))
+		$escapedFileEntryUri = [System.Uri]::EscapeDataString($fileEntryUri.ToString()).Replace("https%3A%2F%2F","https://").Replace("%2F","/")
 		
 		$xmlWriter.WriteStartElement('url')
 		$xmlWriter.WriteElementString('loc',$escapedFileEntryUri)
