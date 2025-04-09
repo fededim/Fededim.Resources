@@ -4,7 +4,7 @@
 
 HOSTNAME=YOUR-HOSTNAME.dynu.com
 PASSWORD=YOUR-SUPERSECRET-PASSWORD
-IP=${1}
+IP="$(curl -fs4 https://myip.dnsomatic.com/)"
 
 URL="https://api.dynu.com/nic/update?hostname=${HOSTNAME}&myip=${IP}&password=${PASSWORD}"
 
