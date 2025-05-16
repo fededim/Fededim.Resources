@@ -10,6 +10,9 @@ Utility to perform a whole pull request cherry pick using Azure Devops REST API 
 # [AzureDevopsQueryUserCommits.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsQueryUserCommits.ps1)
 Utility to list user commits using Azure Devops REST API among all repositories and all their branches.
 
+# [EnforceEncryptedDns.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/EnforceEncryptedDns.ps1)
+Utility to enforce the use of DoH encrypted Comodo's DNS server for increased privacy
+
 # [RecreateSitemapXml.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/RecreateSitemapXml.ps1)
 Utility to recreate a sitemap.xml file of a website.
 
