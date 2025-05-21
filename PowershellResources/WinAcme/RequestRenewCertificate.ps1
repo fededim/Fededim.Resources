@@ -54,7 +54,9 @@ https://www.win-acme.com/reference/cli
 
 .NOTES
 
-© 2024 Federico Di Marco <fededim@gmail.com> released under MIT LICENSE 
+© 2024 Federico Di Marco <fededim@gmail.com> released under MIT LICENSE
+
+Since May 2025 Let's Encrypt removed the support for OCSP Must-Stample (see https://letsencrypt.org/2024/12/05/ending-ocsp/) if you are unable to renew your certificate please delete and recreate the config folder and relaunch the script.
 #>
 [CmdletBinding()]
 param(
