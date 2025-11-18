@@ -54,9 +54,17 @@ https://www.win-acme.com/reference/cli
 
 .NOTES
 
-© 2024 Federico Di Marco <fededim@gmail.com> released under MIT LICENSE
+© 2024- Federico Di Marco <fededim@gmail.com> released under MIT LICENSE
 
-Since May 2025 Let's Encrypt removed the support for OCSP Must-Stample (see https://letsencrypt.org/2024/12/05/ending-ocsp/) if you are unable to renew your certificate please delete and recreate the config folder and relaunch the script.
+PREREQUISITES:
+- WinAcme use NET Runtime 7.0 which must be installed from here https://dotnet.microsoft.com/it-it/download/dotnet/7.0
+- The first time you issue a "winget" command it prompts you to accept the terms for the Microsoft Store, if you never did this, please launch manually "winget" in a prompt and accept the terms, otherwise this script will get stuck indefinitely.
+
+HISTORY:
+- Initial version
+- 31052025: Removed --ocsp-must-staple parameter since in May 2025 Let's Encrypt removed the support for OCSP Must-Stample (see https://letsencrypt.org/2024/12/05/ending-ocsp/). If you are unable to renew your certificate please delete and recreate the config folder then relaunch the script.
+- 18112025: Added notes, fixed installation of win-acme (global flag missing), 
+
 #>
 [CmdletBinding()]
 param(
@@ -90,7 +98,7 @@ param(
 	dotnet tool list win-acme | Out-Null
 	if ($? -eq $false) {
 		Write-Host "Win-Acme is not installed, installing it for current user..."
-		dotnet tool install win-acme --create-manifest-if-needed
+		dotnet tool install win-acme --create-manifest-if-needed --global
 	}
 	
 	# check that Webadministration module is installed, if not install it
@@ -133,7 +141,7 @@ param(
 	$CertificatePath = (Resolve-Path -Path $CertificatePath).Path
 	$UpdateIISCertificatesScriptPath = (Resolve-Path -Path ".\UpdateIISCertificates.ps1").Path
 
-	$commandLine = "wacs.exe --accepttos --source manual --host $hosts --validation selfhosting --validationport $ValidationPort --store `"certificatestore,pemfiles,pfxfile`" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --ocsp-must-staple --pemfilespath `"$CertificatePath`" --pempassword `"$CertificatePassword`" --pfxfilepath `"$CertificatePath`" --pfxpassword `"$CertificatePassword`" --installation script --script `"$UpdateIISCertificatesScriptPath`" --scriptparameters `"'{CertThumbprint}' 'SEVPNSERVERDEV' '$CertificatePath' '$CertificatePassword'`""
+	$commandLine = "wacs.exe --accepttos --source manual --host $hosts --validation selfhosting --validationport $ValidationPort --store `"certificatestore,pemfiles,pfxfile`" --setuptaskscheduler --emailaddress $AcmeEmailAddress  --pemfilespath `"$CertificatePath`" --pempassword `"$CertificatePassword`" --pfxfilepath `"$CertificatePath`" --pfxpassword `"$CertificatePassword`" --installation script --script `"$UpdateIISCertificatesScriptPath`" --scriptparameters `"'{CertThumbprint}' 'SEVPNSERVERDEV' '$CertificatePath' '$CertificatePassword'`""
 	
 	if ($Force -eq $true) {
 		$commandLine = $commandLine + " --force --nocache"

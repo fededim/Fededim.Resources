@@ -39,7 +39,11 @@ https://www.win-acme.com/reference/cli
 
 .NOTES
 
-© 2024 Federico Di Marco <fededim@gmail.com> released under MIT LICENSE 
+© 2024- Federico Di Marco <fededim@gmail.com> released under MIT LICENSE 
+
+HISTORY:
+- Initial version
+- 18112025: fixed error on probing SoftetherVpn service, the wmic tool has been removed from Windows since 25H2 version --> switched to Get-cimInstance
 #>
 [CmdletBinding()]
 param(
@@ -73,12 +77,13 @@ param(
 		}
 
 
+		$softEtherVpnServer = (Get-cimInstance win32_service -Filter "name like '$SoftEthervpnServiceName'")
 		#Update certificate on Soft Ethervpn server
-		if (![String]::IsNullOrEmpty($SoftEthervpnServiceName) -and ![String]::IsNullOrEmpty($CertificatesPath)) {
+		if ($softEtherVpnServer -ne $null -and ![String]::IsNullOrEmpty($CertificatesPath)) {
 			Write-Host "Updating sothether vpn certificate..."
 
 			net stop $SoftEthervpnServiceName
-			$serviceFolder = Split-Path (Split-Path (wmic service where "name='$SoftEthervpnServiceName'" get PathName)[2]).Replace('"','')
+			$serviceFolder = Split-Path ($softEtherVpnServer.PathName)
 			$vpnServerConfigFile = Join-Path $serviceFolder vpn_server.config
 			$vpnServerConfig = Get-Content "$vpnServerConfigFile"
 			$domainName = $certificate.GetName().Replace('CN=','')
