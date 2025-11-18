@@ -63,7 +63,7 @@ PREREQUISITES:
 HISTORY:
 - Initial version
 - 31052025: Removed --ocsp-must-staple parameter since in May 2025 Let's Encrypt removed the support for OCSP Must-Stample (see https://letsencrypt.org/2024/12/05/ending-ocsp/). If you are unable to renew your certificate please delete and recreate the config folder then relaunch the script.
-- 18112025: Added notes, fixed installation of win-acme (global flag missing), 
+- 18112025: fixed installation of win-acme (global flag missing), added notes, one about winget which now forces you to accept the terms the first time it is used
 
 #>
 [CmdletBinding()]
