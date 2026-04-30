@@ -42,7 +42,7 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 param(
 	[ValidateNotNullOrEmpty()] [Alias('f')] [String] $RootFolder,
 	[ValidateNotNullOrEmpty()] [Alias('d')] [String] $Domain,
-	[ValidateNotNullOrEmpty()] [Alias('r')] [String] $FileMatchingRegex = "(\.htm(l)|\.pdf|\.md|\.mp3|\.mp4)"
+	[ValidateNotNullOrEmpty()] [Alias('r')] [String] $FileMatchingRegex = "(\.html?|\.pdf|\.md|\.mp3|\.mp4|\.mov|\.jpe?g|\.txt|\.docx?|\.xlsx?|\.txt)"
 )
 
 $domainUri = New-Object System.Uri($Domain)
