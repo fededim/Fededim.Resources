@@ -57,7 +57,7 @@ update_dns_record() {
 RESULT=true
 
 IPv4="${1:-$(curl -s https://api.ipify.org)}"
-IPv6="$(curl -s 'https://api64.ipify.org')"
+IPv6="$(curl -s 'https://api6.ipify.org')"
 
 logger "IPV4 ${IPv4} IPV6 ${IPv6} obtained from Router/IPIFY (router params $1 $2)"
 
