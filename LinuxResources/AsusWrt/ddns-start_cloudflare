@@ -1,0 +1,117 @@
+#!/bin/sh
+#
+# check both external ipv4 and ipv6 against cloudflare records and if needed updates them
+# Cloudflare records API https://developers.cloudflare.com/api/resources/dns/subresources/records
+
+API_TOKEN="<cloudflare api token>"      # Your API Token
+ZONE_ID="<cloudflare zone id>"        # Your zone id, hex16 string
+RECORD_NAME="<domain name>"
+RECORD_TTL="1"
+UPDATE_IPv6=true
+
+get_dns_records_data() {
+  local record_name=$1
+  local type=$2
+  local api_token=$3
+  local zone_id=$4
+
+  # Fetch raw response into a local variable
+  local raw_response
+  raw_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?type=${type}&name=${record_name}" \
+    -H "Authorization: Bearer ${api_token}" \
+    -H "Content-Type:application/json")
+
+  # --- LOG THE LOOKUP RESPONSE ---
+  logger "Cloudflare GET lookup response for ${type} records: ${raw_response}"
+
+  # Formats it into newline-separated ID:IP entries
+  echo "$raw_response" \
+    | tr '}' '\n' \
+    | grep '"id":' \
+    | sed -n 's/.*"id":"\([^"]*\)".*"content":"\([^"]*\)".*/\1:\2/p'
+}
+
+update_dns_record() {
+  local record_name=$1
+  local record_id=$2
+  local type=$3
+  local ip=$4
+  local record_ttl=$5
+  local api_token=$6
+  local zone_id=$7
+
+  # Capture response to a local variable
+  local raw_response
+  raw_response=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${record_id}" \
+    -H "Authorization: Bearer ${api_token}" \
+    -H "Content-Type: application/json" \
+    --data "{\"type\":\"${type}\",\"name\":\"${record_name}\",\"content\":\"${ip}\",\"ttl\":${record_ttl},\"proxied\":true}")
+
+  # --- LOG THE UPDATE RESPONSE ---
+  logger "Cloudflare PUT update response for ${type} record ID ${record_id}: ${raw_response}"
+
+  # Output back to the loop for validation
+  echo "$raw_response"
+}
+
+RESULT=1
+
+IPv4="${1:-$(curl -s https://api.ipify.org)}"
+IPv6="$(curl -s 'https://api6.ipify.org')"
+
+logger "IPV4 ${IPv4} IPV6 ${IPv6} obtained from Router/IPIFY (router params $1 $2)"
+
+# --- PROCESS IPv4 ---
+if [ ! -z "$IPv4" ] && [ "$IPv4" != "0.0.0.0" ] && [ "$IPv4" != "<html>" ]; then
+  A_RECORDS=$(get_dns_records_data "$RECORD_NAME" "A" "$API_TOKEN" "$ZONE_ID")
+
+  # Loop line-by-line safely by using a standard 'while read' block fed by the variable
+  echo "$A_RECORDS" | while read -r RECORD || [ -n "$RECORD" ]; do
+    [ -z "$RECORD" ] && continue
+    
+    A_RECORD_ID=$(echo "$RECORD" | cut -d':' -f1)
+    CF_IP=$(echo "$RECORD" | cut -d':' -f2-)
+
+    if [ "$IPv4" = "$CF_IP" ]; then
+      logger "IPv4 for ${RECORD_NAME} is already ${IPv4}. No update needed."
+    else
+      logger "IPv4 changed from ${CF_IP} to ${IPv4}. Updating..."
+      RESPONSE="$(update_dns_record "$RECORD_NAME" "$A_RECORD_ID" "A" "$IPv4" "$RECORD_TTL" "$API_TOKEN" "$ZONE_ID")"
+      
+      if echo "$RESPONSE" | grep -q '"success":\ *true'; then
+        logger "Updated A record for ${RECORD_NAME} to ${IPv4}"
+      else
+        logger "Unable to update A record for ${RECORD_NAME} with ${IPv4}"
+        RESULT=0
+      fi
+    fi
+  done
+fi
+
+# --- PROCESS IPv6 ---
+if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] && ip -6 route get "$IPv6" >/dev/null 2>&1; then
+  AAAA_RECORDS=$(get_dns_records_data "$RECORD_NAME" "AAAA" "$API_TOKEN" "$ZONE_ID")
+  
+  echo "$AAAA_RECORDS" | while read -r RECORD || [ -n "$RECORD" ]; do
+    [ -z "$RECORD" ] && continue
+
+    AAAA_RECORD_ID=$(echo "$RECORD" | cut -d':' -f1)
+    CF_IPv6=$(echo "$RECORD" | cut -d':' -f2-)
+
+    if [ "$IPv6" = "$CF_IPv6" ]; then
+      logger "IPv6 for ${RECORD_NAME} is already ${IPv6}. No update needed."
+    else
+      logger "IPv6 changed from ${CF_IPv6} to ${IPv6}. Updating..."
+      RESPONSE="$(update_dns_record "$RECORD_NAME" "$AAAA_RECORD_ID" "AAAA" "$IPv6" "$RECORD_TTL" "$API_TOKEN" "$ZONE_ID")"
+      
+      if echo "$RESPONSE" | grep -q '"success":\ *true'; then
+        logger "Updated AAAA record for ${RECORD_NAME} to ${IPv6}"
+      else
+        logger "Unable to update AAAA record for ${RECORD_NAME} with ${IPv6}"
+        RESULT=0
+      fi
+    fi
+  done
+fi
+
+/sbin/ddns_custom_updated "$RESULT"
