@@ -114,4 +114,5 @@ if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] &&
   done
 fi
 
-/sbin/ddns_custom_updated "$RESULT"
+logger "ddns-start result ${RESULT}"
+/sbin/ddns_custom_updated "${RESULT}"
