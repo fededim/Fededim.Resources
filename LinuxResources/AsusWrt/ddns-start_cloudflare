@@ -54,7 +54,7 @@ update_dns_record() {
   echo "$raw_response"
 }
 
-RESULT=true
+RESULT=1
 
 IPv4="${1:-$(curl -s https://api.ipify.org)}"
 IPv6="$(curl -s 'https://api6.ipify.org')"
@@ -82,14 +82,14 @@ if [ ! -z "$IPv4" ] && [ "$IPv4" != "0.0.0.0" ] && [ "$IPv4" != "<html>" ]; then
         logger "Updated A record for ${RECORD_NAME} to ${IPv4}"
       else
         logger "Unable to update A record for ${RECORD_NAME} with ${IPv4}"
-        RESULT=false
+        RESULT=0
       fi
     fi
   done
 fi
 
 # --- PROCESS IPv6 ---
-if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ]; then
+if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] && ip -6 route get "$IPv6" >/dev/null 2>&1; then
   AAAA_RECORDS=$(get_dns_records_data "$RECORD_NAME" "AAAA" "$API_TOKEN" "$ZONE_ID")
   
   echo "$AAAA_RECORDS" | while read -r RECORD || [ -n "$RECORD" ]; do
@@ -108,8 +108,10 @@ if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ]; t
         logger "Updated AAAA record for ${RECORD_NAME} to ${IPv6}"
       else
         logger "Unable to update AAAA record for ${RECORD_NAME} with ${IPv6}"
-        RESULT=false
+        RESULT=0
       fi
     fi
   done
 fi
+
+/sbin/ddns_custom_updated "$RESULT"
