@@ -31,6 +31,7 @@ get_dns_records_data() {
     | sed -n 's/.*"id":"\([^"]*\)".*"content":"\([^"]*\)".*/\1:\2/p'
 }
 
+
 update_dns_record() {
   local record_name=$1
   local record_id=$2
@@ -54,6 +55,7 @@ update_dns_record() {
   echo "$raw_response"
 }
 
+
 RESULT=1
 
 IPv4="${1:-$(curl -s https://api.ipify.org)}"
@@ -68,7 +70,7 @@ if [ ! -z "$IPv4" ] && [ "$IPv4" != "0.0.0.0" ] && [ "$IPv4" != "<html>" ]; then
   # Loop line-by-line safely by using a standard 'while read' block fed by the variable
   echo "$A_RECORDS" | while read -r RECORD || [ -n "$RECORD" ]; do
     [ -z "$RECORD" ] && continue
-    
+
     A_RECORD_ID=$(echo "$RECORD" | cut -d':' -f1)
     CF_IP=$(echo "$RECORD" | cut -d':' -f2-)
 
@@ -77,7 +79,7 @@ if [ ! -z "$IPv4" ] && [ "$IPv4" != "0.0.0.0" ] && [ "$IPv4" != "<html>" ]; then
     else
       logger "IPv4 changed from ${CF_IP} to ${IPv4}. Updating..."
       RESPONSE="$(update_dns_record "$RECORD_NAME" "$A_RECORD_ID" "A" "$IPv4" "$RECORD_TTL" "$API_TOKEN" "$ZONE_ID")"
-      
+
       if echo "$RESPONSE" | grep -q '"success":\ *true'; then
         logger "Updated A record for ${RECORD_NAME} to ${IPv4}"
       else
@@ -91,7 +93,7 @@ fi
 # --- PROCESS IPv6 ---
 if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] && ip -6 route get "$IPv6" >/dev/null 2>&1; then
   AAAA_RECORDS=$(get_dns_records_data "$RECORD_NAME" "AAAA" "$API_TOKEN" "$ZONE_ID")
-  
+
   echo "$AAAA_RECORDS" | while read -r RECORD || [ -n "$RECORD" ]; do
     [ -z "$RECORD" ] && continue
 
@@ -103,7 +105,7 @@ if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] &&
     else
       logger "IPv6 changed from ${CF_IPv6} to ${IPv6}. Updating..."
       RESPONSE="$(update_dns_record "$RECORD_NAME" "$AAAA_RECORD_ID" "AAAA" "$IPv6" "$RECORD_TTL" "$API_TOKEN" "$ZONE_ID")"
-      
+
       if echo "$RESPONSE" | grep -q '"success":\ *true'; then
         logger "Updated AAAA record for ${RECORD_NAME} to ${IPv6}"
       else
@@ -115,4 +117,4 @@ if [ ! -z "$IPv6" ] && [ "$UPDATE_IPv6" = "true" ] && [ "$IPv6" != "<html>" ] &&
 fi
 
 logger "ddns-start result ${RESULT}"
-/sbin/ddns_custom_updated "${RESULT}"
+/sbin/ddns_custom_updated ${RESULT}
