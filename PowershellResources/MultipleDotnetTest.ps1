@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 
-Utility to execute test multiple times a .NET application, storing all outputs (TRX file and HTML report) in a specified output folder, creating also a ZIP archive.
+Utility to test multiple times a .NET application, storing all outputs (TRX file and HTML report) in a specified output folder, creating also a ZIP archive.
 
 .DESCRIPTION
 
