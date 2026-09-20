@@ -27,3 +27,6 @@ Utility to work with multiple releases of one or more GIT repositories using clo
 
 # [RequestRenewCertificate.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/WinAcme/RequestRenewCertificate.ps1)
 Utility script to obtain and renew a free SSL certificate from Let's Encrypt using win-acme tool and self validation mode.
+
+# [MultipleDotnetTest.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/MultipleDotnetTest.ps1)
+Utility script to test multiple times a .NET application, storing all outputs (TRX file and HTML report) in a specified output folder, creating also a ZIP archive.
