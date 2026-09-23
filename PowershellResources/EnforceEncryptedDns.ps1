@@ -22,6 +22,16 @@ Log information.
 
 PS> EnforceEncryptedDns.ps1
 
+Applies encrypted DNS to all possible interfaces
+
+PS> EnforceEncryptedDns.ps1 -i @(4,12,25)
+
+Applies encrypted DNS to interfaces with IfIndex equal to 4, 12, 25
+
+PS> EnforceEncryptedDns.ps1 -i @()
+
+Skips all interfaces, but it show all their names and IfIndex value
+
 .LINK
 
 https://github.com/fededim/Fededim.Resources/tree/master/PowershellResources
@@ -35,6 +45,7 @@ https://learn.microsoft.com/en-GB/windows-server/networking/dns/doh-client-suppo
 [CmdletBinding()]
 param(
 	# configured Comodo's DNS by default
+	[AllowNull()] [Alias('i')] [String[]] $IfIndexes,
 	[ValidateNotNullOrEmpty()] [Alias('d')] [Hashtable] $DnsServers = @{
 		"1.1.1.1" = 'https://security.cloudflare-dns.com/dns-query'
 		"1.0.0.1" = 'https://security.cloudflare-dns.com/dns-query'
@@ -69,7 +80,12 @@ Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" 
 Write-Host "`nConfigured DNSClient group policy to require DNS encryption`n" -Foreground Green
 
 # Update
-foreach ($adapter in (Get-NetAdapter -IncludeHidden | Where-Object Virtual -eq $False))  {
+foreach ($adapter in (Get-NetAdapter -IncludeHidden | Where-Object { $_.Virtual -eq $False -or $_.InterfaceDescription.StartsWith("Hyper-V") }))  {
+	if ($null -ne $IfIndexes -and $adapter.IfIndex -notin $IfIndexes) {
+		Write-Host "Skipping interface $($adapter.InterfaceAlias) (Index $($adapter.ifIndex) InstanceId $($adapter.InstanceId))`n" -Foreground Yellow
+		continue
+	}	
+
     Write-Host "Configuring encrypted dns on interface $($adapter.InterfaceAlias) (Index $($adapter.ifIndex) InstanceId $($adapter.InstanceId))"
 	Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses ([String[]]$DnsServers.Keys) -ErrorAction SilentlyContinue
 
