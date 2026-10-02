@@ -10,6 +10,9 @@ Utility to perform a whole pull request cherry pick using Azure Devops REST API 
 # [AzureDevopsQueryUserCommits.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/AzureDevopsQueryUserCommits.ps1)
 Utility to list user commits using Azure Devops REST API among all repositories and all their branches.
 
+# [CreateVirtualNetworkAdapter.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/CreateVirtualNetworkAdapter.ps1)
+Utility to create a Hyper-V virtual network adapter with a custom VLAN value for restricting local LAN access of virtual machines.
+
 # [EnforceEncryptedDns.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/EnforceEncryptedDns.ps1)
 Utility to enforce the use of DoH encrypted Comodo's DNS server for increased privacy
 
