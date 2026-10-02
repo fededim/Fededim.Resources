@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
 
-Utility to create a Hyper-V virtual network adapter with a custom VLAN value for restricting local LAN access to virtual machines.
+Utility to create a Hyper-V virtual network adapter with a custom VLAN value for restricting local LAN access of virtual machines.
 
 .DESCRIPTION
 
-Utility to create a Hyper-V virtual network adapter with a custom VLAN value for restricting local LAN access to virtual machines.
+Utility to create a Hyper-V virtual network adapter with a custom VLAN value for restricting local LAN access of virtual machines.
 
 .PARAMETER VLANTag
 Specifies the VLAN ID to assign to the new virtual network adapter
@@ -20,11 +20,11 @@ None
 
 .EXAMPLE
 
-PS> Create-VirtualNetworkAdapter -t 15
+PS> CreateVirtualNetworkAdapter -t 15
 
 Creates a virtual network adapter with VLAN ID 15
 
-PS> Create-VirtualNetworkAdapter -t 20
+PS> CreateVirtualNetworkAdapter -t 20
 
 Creates a virtual network adapter with VLAN ID 20
 
