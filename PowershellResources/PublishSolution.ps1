@@ -25,9 +25,6 @@ Specifies the application pool to be stopped/started for the copy operation
 .PARAMETER SolutionName
 Specifies the solution name without extension. If empty, it automatically searches for a file with extension .sln or slnx and publishes the first one found
 
-.PARAMETER RemoteDriveName
-Specifies the remote drive name to use to mount the remote UNC share of destination server.
-
 .PARAMETER PublishingProfile
 Specifies the publishing profile name. Defaults to "FolderProfile".
 
@@ -59,51 +56,84 @@ param(
 	[ValidateNotNullOrEmpty()]  [Alias('d')] [String] $DeployFolder,
 	[ValidateNotNullOrEmpty()]  [Alias('a')] [String] $AppPool,
     [Parameter(Mandatory=$false)]  [Alias('sn')] [String] $SolutionName,
-	[Parameter(Mandatory=$false)]  [Alias('r')] [String] $RemoteDriveName = "Server",
 	[Parameter(Mandatory=$false)]  [Alias('pp')] [String] $PublishingProfile = "FolderProfile"
 	)
 
-$ErrorActionPreference = 'Stop'
+function Get-Timestamp {
+    return "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')]"
+}
 
-$ServerFolder = "\\$Server\$DeployFolder"
+$ErrorActionPreference = 'Stop'
 
 if ([String]::IsNullOrEmpty($SolutionName)) {
 	$SolutionName = (Get-ChildItem -Filter *.sln* -Recurse -File | Select-Object -First 1).BaseName
 }
 
-Write-Host "Publishing solution: $SolutionName`n"
+$UNCDeployFolder = $DeployFolder -replace '^([A-Za-z]):', "\\$Server\`$1`$"
+$ServerUnc = $UNCDeployFolder.Substring(0, $UNCDeployFolder.IndexOf('$')+1)
+
+$ServerNewFolder = "$($SolutionName)New"
+$ServerOldFolder = "$($SolutionName)Old"
+
+Write-Host "$(Get-Timestamp) Publishing solution: $SolutionName`n" -Foreground Cyan
 Remove-Item $PublishFolder -Recurse -Force -ErrorAction Ignore
 dotnet publish $SolutionName -p:PublishProfile=$PublishingProfile -p:EnvironmentName=Production
 Remove-Item $PublishFolder\appsettings.DEVELOPMENT.json -Force
 
 $credentials = (Get-Credential -Message "Connecting to server: $Server`n")
 
-New-PSDrive -Name $remoteDriveName -PSProvider "FileSystem" -Root $ServerFolder -Credential $credentials
-$remoteSession = New-PSSession -ComputerName $Server -Credential $credentials
+Write-Host "`n$(Get-Timestamp) Mapping samba UNC: $ServerUnc`n" -Foreground Cyan
+New-SmbMapping -RemotePath "$ServerUnc" -Credential $credentials
 
-Invoke-Command -Session $remoteSession {
-	Import-Module WebAdministration
-	$appPoolState = (Get-WebAppPoolState -Name $using:AppPool)
+$remoteSession = New-PSSession -ComputerName "$Server" -Credential $credentials
 
-	if ($($appPoolState.Value) -ne "Stopped") {
-		Write-Host "`nStopping AppPool $using:AppPool (Status $($appPoolState.Value))..."
-
-		Stop-WebAppPool -Name $using:AppPool
+try {
+	$folderToDelete = "$UNCDeployFolder\$ServerNewFolder"
+	if ([System.IO.Directory]::Exists($folderToDelete)) {
+		Write-Host "`n$(Get-Timestamp) Deleting folder $folderToDelete" -Foreground Cyan
+		[System.IO.Directory]::Delete($folderToDelete,$true)
 	}
-} 6>&1
 
-Start-Sleep -Seconds 5
+	$folderToDelete = "$UNCDeployFolder\$ServerOldFolder"
+	if ([System.IO.Directory]::Exists($folderToDelete)) {
+		Write-Host "`n$(Get-Timestamp) Deleting folder $folderToDelete" -Foreground Cyan
+		[System.IO.Directory]::Delete($folderToDelete,$true)
+	}
 
-Write-Host "`nCopying folder $PublishFolder to $ServerFolder"
-Remove-Item "${remoteDriveName}:\*" -Recurse -Force 
-Copy-Item -Path "$PublishFolder\*" -Destination "${remoteDriveName}:\" -Recurse
+	Write-Host "`n$(Get-Timestamp) Copying folder $PublishFolder to $ServerRootFolder\$ServerNewFolder..." -Foreground Cyan
+	robocopy "$PublishFolder" "$UNCDeployFolder\$ServerNewFolder" /E /MT:16 /R:3 /W:5 /NFL /NDL /NJH /NP /NC /NS
 
-Invoke-Command -Session $remoteSession {
-	Write-Host "`nStarting AppPool $using:AppPool..."
-	Start-WebAppPool -Name $using:AppPool
+	Invoke-Command -Session $remoteSession {
+		Import-Module WebAdministration
+		
+		$appPoolState = (Get-WebAppPoolState -Name $using:AppPool)
+
+		if ($($appPoolState.Value) -ne "Stopped") {
+			Write-Host "`n[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Stopping AppPool $using:AppPool (Status $($appPoolState.Value))..." -Foreground Green
+
+			Stop-WebAppPool -Name $using:AppPool
+			
+			while ((Get-WebAppPoolState -Name $using:AppPool).Value -ne "Stopped") {
+				Start-Sleep -Seconds 1
+			}
+
+			Write-Host "`n[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] AppPool $using:AppPool successfully stopped."  -Foreground Green
+		}
+
+	} 6>&1
+
+	Write-Host "`n[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Renaming folder $DeployFolder\$SolutionName to $DeployFolder\$ServerOldFolder on server $Server..." -Foreground Cyan
+	[System.IO.Directory]::Move("$UNCDeployFolder\$SolutionName","$UNCDeployFolder\$ServerOldFolder")
+
+	Write-Host "`n[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Renaming folder $DeployFolder\$ServerNewFolder to $DeployFolder\$SolutionName on server $Server..." -Foreground Cyan
+	[System.IO.Directory]::Move("$UNCDeployFolder\$ServerNewFolder","$UNCDeployFolder\$SolutionName")
+
+	Invoke-Command -Session $remoteSession {
+		Write-Host "`n[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting AppPool $using:AppPool..." -Foreground Green
+		Start-WebAppPool -Name $using:AppPool
+	}
 }
-
-Remove-PsDrive -Name $remoteDriveName -Force
-Remove-PSSession -Session $remoteSession
-
-
+finally {
+	Remove-PSSession -Session $remoteSession
+	Remove-SmbMapping -RemotePath "$ServerUnc" -Force
+}
