@@ -7,6 +7,12 @@ Utility to enforce the use of DoH encrypted Comodo's DNS server for increased pr
 
 Utility to enforce the use of DoH encrypted Comodo's DNS server for increased privacy on all connected network interfaces
 
+.PARAMETER IfIndexes
+Specifies the IfIndex values of the network interfaces to configure. If omitted (null), the list of network interfaces is shown and the user is asked to enter one or more IfIndex values separated by space. If an empty array is passed, all interfaces are skipped.
+
+.PARAMETER All
+If set, encrypted DNS is applied to all network interfaces, regardless of the value of IfIndexes (no prompt is shown).
+
 .PARAMETER DnsServers
 Specifies the hashtable consisting of the dns server ip address with the associated Dns-Over-Https (DoH) template.
 
@@ -22,7 +28,11 @@ Log information.
 
 PS> EnforceEncryptedDns.ps1
 
-Applies encrypted DNS to all possible interfaces
+Shows the list of network interfaces and asks which IfIndex values (separated by space) to configure
+
+PS> EnforceEncryptedDns.ps1 -All
+
+Applies encrypted DNS to all possible interfaces without asking anything
 
 PS> EnforceEncryptedDns.ps1 -i @(4,12,25)
 
@@ -46,6 +56,7 @@ https://learn.microsoft.com/en-GB/windows-server/networking/dns/doh-client-suppo
 param(
 	# configured Comodo's DNS by default
 	[AllowNull()] [Alias('i')] [String[]] $IfIndexes,
+	[Alias('a')] [Switch] $All,
 	[ValidateNotNullOrEmpty()] [Alias('d')] [Hashtable] $DnsServers = @{
 		"1.1.1.1" = 'https://security.cloudflare-dns.com/dns-query'
 		"1.0.0.1" = 'https://security.cloudflare-dns.com/dns-query'
@@ -53,6 +64,47 @@ param(
 		"2606:4700:4700::1001" = 'https://security.cloudflare-dns.com/dns-query'
 	}
 )
+
+# Interfaces list (same set which is processed by the update loop below)
+$adapters = @(Get-NetAdapter -IncludeHidden | Sort-Object -Property ifIndex)
+
+# If neither -All nor -IfIndexes has been specified, show interfaces and ask the user which ones to configure
+if (-not $All -and $null -eq $IfIndexes) {
+	$ipByIndex = @{}
+	foreach ($ip in (Get-NetIPAddress -ErrorAction SilentlyContinue)) {
+		$idx = [int]$ip.InterfaceIndex
+		if (-not $ipByIndex.ContainsKey($idx)) { $ipByIndex[$idx] = @() }
+		$ipByIndex[$idx] += $ip.IPAddress
+	}
+
+	$adapters | ForEach-Object {
+		[PSCustomObject]@{
+			Index       = $_.ifIndex
+			Name        = $_.InterfaceAlias
+			Description = $_.InterfaceDescription
+			Status      = $_.Status
+			IPAddress   = ($ipByIndex[[int]$_.ifIndex] -join ', ')
+		}
+	} | Sort-Object -Property Name | Format-Table -AutoSize -Wrap | Out-Host
+
+	$answer = Read-Host "Enter one or more interface indexes (Index column) separated by space"
+	$selected = @()
+	foreach ($token in ($answer -split '[\s,]+' | Where-Object { $_ })) {
+		if ($token -match '^\d+$' -and [int]$token -in $adapters.ifIndex) {
+			$selected += [int]$token
+		}
+		else {
+			Write-Host "Ignoring invalid interface index '$token'" -Foreground Yellow
+		}
+	}
+
+	if ($selected.Count -eq 0) {
+		Write-Host "No valid interface index selected, nothing to do." -Foreground Red
+		return
+	}
+
+	$IfIndexes = $selected
+}
 
 #Add dns server with template to well known list
 foreach ($keyValuePair in $DnsServers.GetEnumerator()) {
@@ -80,9 +132,8 @@ Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" 
 Write-Host "`nConfigured DNSClient group policy to require DNS encryption`n" -Foreground Green
 
 # Update
-foreach ($adapter in (Get-NetAdapter -IncludeHidden))  {
-	if ($null -ne $IfIndexes -and $adapter.IfIndex -notin $IfIndexes) {
-		Write-Host "Skipping interface $($adapter.InterfaceAlias) (Index $($adapter.ifIndex) InstanceId $($adapter.InstanceId))`n" -Foreground Yellow
+foreach ($adapter in $adapters)  {
+	if (-not $All -and $adapter.IfIndex -notin $IfIndexes) {
 		continue
 	}	
 
