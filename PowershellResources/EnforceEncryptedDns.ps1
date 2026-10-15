@@ -80,7 +80,7 @@ Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows NT\DNSClient" 
 Write-Host "`nConfigured DNSClient group policy to require DNS encryption`n" -Foreground Green
 
 # Update
-foreach ($adapter in (Get-NetAdapter -IncludeHidden | Where-Object { $_.Virtual -eq $False -or $_.InterfaceDescription.StartsWith("Hyper-V") }))  {
+foreach ($adapter in (Get-NetAdapter -IncludeHidden))  {
 	if ($null -ne $IfIndexes -and $adapter.IfIndex -notin $IfIndexes) {
 		Write-Host "Skipping interface $($adapter.InterfaceAlias) (Index $($adapter.ifIndex) InstanceId $($adapter.InstanceId))`n" -Foreground Yellow
 		continue

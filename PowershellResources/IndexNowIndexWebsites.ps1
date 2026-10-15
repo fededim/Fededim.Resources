@@ -37,7 +37,7 @@ https://github.com/fededim/Fededim.Resources/blob/master/LICENSE.txt
 [CmdletBinding()]
 param(
 	[ValidateNotNullOrEmpty()] [Alias('d')] [Hashtable] $DomainsToBeIndexed = @{
-		"www.fdm-in.freeddns.org" = '4c6a24f07fb641b19a43d02ce5a35738'
+		"www.thelookworthypicks.com" = 'cc7144c07ffb4481a5720a1b85d0fc1a'
 		"fededim.github.io" = 'b90e22c7680d4d4fbf051bc68004064e'
 	}
 )
