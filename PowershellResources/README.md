@@ -16,6 +16,9 @@ Utility to create a Hyper-V virtual network adapter with a custom VLAN value for
 # [EnforceEncryptedDns.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/EnforceEncryptedDns.ps1)
 Utility to enforce the use of DoH encrypted Comodo's DNS server for increased privacy
 
+# [HttpSpeed.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/HttpSpeed.ps1)
+Utility to test the speed of a (local) web server
+
 # [RecreateSitemapXml.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/RecreateSitemapXml.ps1)
 Utility to recreate a sitemap.xml file of a website.
 
