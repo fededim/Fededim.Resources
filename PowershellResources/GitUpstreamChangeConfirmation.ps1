@@ -20,11 +20,11 @@ None.
 
 .EXAMPLE
 
-PS> GitUpstreamRepositoryChangeHook.ps1 
+PS> GitUpstreamChangeConfirmation.ps1 
 
 Sets us a global confirmation for all Git repositories of the current user
 
-PS> GitUpstreamRepositoryChangeHook.ps1 -Local
+PS> GitUpstreamChangeConfirmation.ps1 -Local
 
 Sets us a local confirmation only for the local Git repository of the current folder
 
