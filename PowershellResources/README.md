@@ -19,6 +19,9 @@ Utility to enforce the use of DoH encrypted Comodo's DNS server for increased pr
 # [HttpSpeed.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/HttpSpeed.ps1)
 Utility to test the speed of a (local) web server
 
+# [GitUpstreamChangeConfirmation.ps1](https://github.com/fededim/Fededim.Resources/blob/master/GitUpstreamChangeConfirmation.ps1)
+Utility which sets up a confirmation whenever you push changes to a changed upstream repository
+
 # [RecreateSitemapXml.ps1](https://github.com/fededim/Fededim.Resources/blob/master/PowershellResources/RecreateSitemapXml.ps1)
 Utility to recreate a sitemap.xml file of a website.
 
