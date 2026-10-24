@@ -125,7 +125,10 @@ exit 0
             Write-Host "✅ Created LOCAL pre-push hook script at: $hookFile" -ForegroundColor Green
         } else {
             # Update global config only if it's the global route
-            git config --global core.hooksPath "$HOME/.git-hooks"
+            $gitHooksPath = ("$HOME/.git-hooks" -replace '^([A-Za-z]):', '/$1' -replace '\\', '/')
+
+            git config --global core.hooksPath $gitHooksPath
+
             Write-Host "✅ Created GLOBAL pre-push hook script at: $hookFile" -ForegroundColor Green
             Write-Host "🌐 Git global configuration updated! Confirmation is now active machine-wide." -ForegroundColor Cyan
         }
