@@ -56,6 +56,82 @@ A table with these columns:
 	- exec spSearchTables NULL,NULL,NULL,NULL,NULL,'30%' - returns all table and all columns whose value matches 30% in all databases in the server
 	- exec spSearchTables NULL,NULL,NULL,'geo%',NULL,'POINT(-122.35900 47.65129)' - WKT query: returns all table and all columns whose columntype is spatial (e.g. geometry or geography) and contain the specified WKT entity
 
+
+## [AIDbMaintenance.sql](https://github.com/fededim/Fededim.Resources/tree/master/TSqlResources/SPs/AIDbMaintenance.sql)
+
+DbMaintenance - A helper script to schedule periodically to maintain fragmented indexes, optionally rebuild heaps with forwarded records, and update statistics which need it.
+Requires SQL Server 2016 SP1 or later, including Standard and Express editions.
+
+### Parameters
+
+exec dbo.spDbMaintenance (all optional)
+
+	-@ReorganizeThreshold       Min. fragmentation % to take an action on a rowstore index
+                                (default 15)
+	-@RebuildThreshold          Min. fragmentation % to REBUILD instead of REORGANIZE
+                                (default 30). If page locks are disabled, eligible indexes
+                                require REBUILD, subject to the rebuild page limit.
+	-@MinPageCount              Min. in-row heap pages / rowstore leaf pages for maintenance
+                                (default 1000). Does not filter columnstore or statistics.
+	-@MaxRebuildPageCount       Max. pages per target partition, or unpartitioned object,
+                                allowed for an offline REBUILD. NULL = no limit (default).
+                                Larger rowstore targets are reorganized if page locks are
+                                enabled; otherwise they are skipped. Larger heaps are skipped.
+                                Heap rebuilds may also rebuild nonclustered indexes, so this
+                                is not a limit on the total work performed.
+	-@ColumnstoreDeletedPercent Min. aggregate deleted-row % across compressed rowgroups in a
+                                partition to REORGANIZE a columnstore index (default 20)
+	-@StatsModificationPercent  Modified-row percentage threshold for statistics (default 10),
+                                based on the stored statistic row count; see formula below.
+	-@HeapRebuildEnabled        1 = rebuild eligible heaps using ALTER TABLE ... REBUILD.
+                                0 = skip heap discovery in execution mode (default).
+                                Preview lists qualifying heaps even when this is 0.
+	-@HeapForwardedPercent      Min. sampled forwarded-record % for a heap to qualify for
+                                rebuild or preview reporting (default 10)
+	-@MaxDurationMinutes        No new maintenance command starts after this elapsed time.
+                                Includes discovery time, but does not stop discovery or an
+                                operation already running. NULL = no limit (default).
+	-@LockTimeoutSeconds        Seconds to wait for an object lock before the operation fails.
+                                -1 = wait forever; otherwise 0 to 2147483 (default 60).
+                                Does not control the concurrency application lock.
+	-@IndexRebuildEnabled       1 = maintain rowstore and columnstore indexes (default).
+                                0 = skip index discovery and maintenance. Controls both
+                                REBUILD and REORGANIZE; does not control heap maintenance.
+	-@StatisticsRebuildEnabled  1 = perform eligible UPDATE STATISTICS operations (default).
+                                0 = skip this phase. Index rebuilds can still refresh their
+                                own statistics.
+	-@PreviewMode               1 = return planned work without executing maintenance.
+                                0 = execute maintenance (default). Preview honors the phase
+                                switches, includes heap advisory rows, performs discovery,
+                                and acquires the same concurrency lock as execution.
+                                Preview is a snapshot, not a guarantee of work completed
+                                within the configured duration.
+	-@StatsSizeSensitiveEnabled 1 = use the size-sensitive statistics threshold (default).
+                                0 = use only the percentage threshold.
+	-@StatsSizeThresholdFactor  Positive factor in the size-sensitive formula (default 1000).
+                                A smaller factor can make statistics eligible sooner.
+	-@StatsMinimumModificationCount
+                                Positive floor for the size-sensitive branch (default 500).
+                                This is not a floor for the percentage branch.
+
+ 
+### OUTPUT
+
+OUTPUT: a table with all the T-SQL statement which will be run to rebuild the indexes and update statistics. PRINTs report progress, skipped operations, errors and totals. If operations fail, an error is raised after the remaining eligible work is attempted subject to the duration limit. Heap advisory rows are available in preview only.
+When @PreviewMode=1 only the table is displayed showing the planned commands for analysis and inspection.
+
+### USAGE
+
+    - exec dbo.spDbMaintenance: maintain indexes and statistics with default thresholds; do not rebuild heaps.
+    - exec dbo.spDbMaintenance @PreviewMode = 1: display planned index/statistics work and qualifying heap advisories, but no maintenance commands are executed.
+    - exec dbo.spDbMaintenance @PreviewMode = 1, @HeapRebuildEnabled = 1: preview eligible heap rebuilds together with default index/statistics work
+    - exec dbo.spDbMaintenance @IndexRebuildEnabled = 0, @HeapRebuildEnabled = 0, @StatisticsRebuildEnabled = 1: maintain statistics only, using the default size-sensitive threshold.
+    - exec dbo.spDbMaintenance @IndexRebuildEnabled = 1, @StatisticsRebuildEnabled = 0: maintain indexes only; index rebuilds can still refresh index statistics.
+    - exec dbo.spDbMaintenance @HeapRebuildEnabled = 1, @MaxRebuildPageCount = 100000, @MaxDurationMinutes = 30, @LockTimeoutSeconds = 15: nclude heap rebuilds, cap each rebuild target at 100000 pages, and stop starting new commands after 30 minutes. Wait up to 15 seconds for object locks.
+    - exec dbo.spDbMaintenance @PreviewMode = 1, @IndexRebuildEnabled = 0, @StatsSizeSensitiveEnabled = 1, @StatsSizeThresholdFactor = 500, @StatsMinimumModificationCount = 500: Preview statistics-only work with a lower size-sensitive factor. The 500-modification floor applies only to the size-sensitive branch.
+    - exec dbo.spDbMaintenance @IndexRebuildEnabled = 0, @StatsSizeSensitiveEnabled = 0, @StatsModificationPercent = 10: Maintain statistics only when the percentage threshold is reached.
+
+
 # Functions (Functions folder)
 
 ## [fnGetCalendarTable.sql](https://github.com/fededim/Fededim.Resources/tree/master/TSqlResources/Functions/fnGetCalendarTable.sql)
